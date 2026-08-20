@@ -63,7 +63,7 @@
     {% if bookings %}
       <table class="table">
         <thead>
-          <tr><th>Cuándo</th><th>Aeroplanta</th><th>Matrícula</th><th>Modelo</th>
+          <tr><th>Cuándo</th><th>Aeroplanta</th><th>Matrícula</th><th>Modelo</th><th>N° Vuelo</th>
               <th>Litros</th><th>Estado</th><th>Observaciones</th></tr>
         </thead>
         <tbody>
@@ -74,6 +74,7 @@
               <td>{{ b.agenda.full_name }}</td>
               <td>{{ b.aircraft or "—" }}</td>
               <td>{{ b.aircraft_model or "—" }}</td>
+              <td>{{ b.flight_number or "—" }}</td>
               <td>{{ b.liters if b.liters else "—" }}</td>
               <td>
                 {% if b.status == "cancelled" %}

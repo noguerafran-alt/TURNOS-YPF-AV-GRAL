@@ -51,6 +51,7 @@ def booking_payload(booking, agenda, user) -> dict[str, Any]:
         "time": fmt_time(booking.starts_at),
         "aircraft": booking.aircraft,
         "aircraft_model": booking.aircraft_model,
+        "flight_number": booking.flight_number,
         "liters": booking.liters,
         "notes": booking.notes,
         "bookings_url": f"{settings.base_url}/mis-turnos",

@@ -46,7 +46,7 @@
   {% if bookings %}
     <table class="table">
       <thead>
-        <tr><th>Horario</th><th>Cliente</th><th>Contacto</th><th>Matrícula</th><th>Modelo</th><th>Litros</th><th>Estado</th><th></th></tr>
+        <tr><th>Horario</th><th>Cliente</th><th>Contacto</th><th>Matrícula</th><th>Modelo</th><th>N° Vuelo</th><th>Litros</th><th>Estado</th><th></th></tr>
       </thead>
       <tbody>
         {% for booking in bookings %}
@@ -65,6 +65,7 @@
             </td>
             <td>{{ booking.aircraft or "—" }}</td>
             <td>{{ booking.aircraft_model or "—" }}</td>
+            <td>{{ booking.flight_number or "—" }}</td>
             <td>{{ booking.liters if booking.liters else "—" }}</td>
             <td>
               {% if booking.status == "cancelled" %}
@@ -83,7 +84,7 @@
           </tr>
           {% if booking.notes %}
             <tr class="row--notes">
-              <td colspan="8"><span class="muted">Observaciones:</span> {{ booking.notes }}</td>
+              <td colspan="9"><span class="muted">Observaciones:</span> {{ booking.notes }}</td>
             </tr>
           {% endif %}
         {% endfor %}

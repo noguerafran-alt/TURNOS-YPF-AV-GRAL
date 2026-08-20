@@ -20,6 +20,7 @@
             <p class="booking__meta">
               {% if booking.aircraft %}<span>Matrícula: <strong>{{ booking.aircraft }}</strong></span>{% endif %}
               {% if booking.aircraft_model %}<span>{{ booking.aircraft_model }}</span>{% endif %}
+              {% if booking.flight_number %}<span>Vuelo {{ booking.flight_number }}</span>{% endif %}
               {% if booking.liters %}<span>{{ booking.liters }} L estimados</span>{% endif %}
             </p>
             {% if booking.notes %}<p class="muted">{{ booking.notes }}</p>{% endif %}

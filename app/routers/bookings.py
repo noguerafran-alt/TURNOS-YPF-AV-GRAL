@@ -47,10 +47,23 @@ def lock_agenda(db: Session, agenda: Agenda):
 class BookingRequest(BaseModel):
     slug: str
     starts_at: datetime
-    aircraft: str = Field(default="", max_length=40)
-    aircraft_model: str = Field(default="", max_length=60)
-    liters: int | None = Field(default=None, ge=0, le=200_000)
+    # Matrícula, modelo y litros son obligatorios: son los datos mínimos que
+    # necesita el operador para preparar el abastecimiento. El número de vuelo
+    # queda opcional porque no todas las aeronaves que cargan combustible acá
+    # vuelan un tramo comercial con código asignado.
+    aircraft: str = Field(min_length=1, max_length=40)
+    aircraft_model: str = Field(min_length=1, max_length=60)
+    liters: int = Field(ge=1, le=20_000)
+    flight_number: str = Field(default="", max_length=20)
     notes: str = Field(default="", max_length=500)
+
+    @field_validator("aircraft", "aircraft_model")
+    @classmethod
+    def not_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Este campo es obligatorio.")
+        return value
 
     @field_validator("starts_at")
     @classmethod
@@ -135,6 +148,7 @@ def create_booking(
             aircraft=payload.aircraft.strip().upper()[:40],
             aircraft_model=payload.aircraft_model.strip()[:60],
             liters=payload.liters,
+            flight_number=payload.flight_number.strip().upper()[:20],
             notes=payload.notes.strip()[:500],
         )
         db.add(booking)

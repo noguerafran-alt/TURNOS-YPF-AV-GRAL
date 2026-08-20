@@ -301,7 +301,7 @@ def delete_closure(
 # ============================================================
 CSV_HEADERS = [
     "ID", "Aeroplanta", "Sede", "Producto", "Fecha", "Desde", "Hasta", "Estado",
-    "Cliente", "Email", "Teléfono", "Empresa", "Matrícula", "Modelo", "Litros",
+    "Cliente", "Email", "Teléfono", "Empresa", "Matrícula", "Modelo", "N° Vuelo", "Litros",
     "Observaciones", "Reservado el", "Cancelado el", "Cancelado por",
 ]
 
@@ -356,6 +356,7 @@ def _booking_row(booking: Booking) -> list[str]:
             user.company if user else "",
             booking.aircraft,
             booking.aircraft_model,
+            booking.flight_number,
             booking.liters if booking.liters is not None else "",
             booking.notes,
             booking.created_at.astimezone(settings.tz).strftime("%d/%m/%Y %H:%M")

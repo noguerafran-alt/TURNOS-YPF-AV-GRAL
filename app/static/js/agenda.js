@@ -64,13 +64,15 @@
       if (!selectedSlot) return;
       hideError();
 
-      const litersRaw = bookForm.liters.value.trim();
+      // required + min/max en el HTML ya bloquean el submit si falta algo:
+      // el navegador ni dispara este listener si el form no es válido.
       const payload = {
         slug: window.AGENDA_SLUG,
         starts_at: selectedSlot,
         aircraft: bookForm.aircraft.value.trim(),
         aircraft_model: bookForm.aircraft_model.value.trim(),
-        liters: litersRaw === '' ? null : Number(litersRaw),
+        flight_number: bookForm.flight_number.value.trim(),
+        liters: Number(bookForm.liters.value.trim()),
         notes: bookForm.notes.value.trim()
       };
 

@@ -19,13 +19,14 @@
         {% if address %}<br /><span style="color:#5A6A7D;font-size:13px;">{{ address }}</span>{% endif %}
       </p>
 
-      {% if aircraft or aircraft_model or liters or notes %}
+      {% if aircraft or aircraft_model or flight_number or liters or notes %}
         <p style="margin:0 0 4px;font-size:12px;color:#5A6A7D;text-transform:uppercase;letter-spacing:.08em;">
           Datos cargados
         </p>
         <p style="margin:0;font-size:14px;color:#1C2733;">
           {% if aircraft %}Matrícula: <strong>{{ aircraft }}</strong><br />{% endif %}
           {% if aircraft_model %}Modelo: {{ aircraft_model }}<br />{% endif %}
+          {% if flight_number %}Vuelo: {{ flight_number }}<br />{% endif %}
           {% if liters %}Litros estimados: {{ liters }}<br />{% endif %}
           {% if notes %}<span style="color:#5A6A7D;">{{ notes }}</span>{% endif %}
         </p>

@@ -233,6 +233,7 @@ class Booking(Base):
     # Datos propios del rubro aeronáutico
     aircraft: Mapped[str] = mapped_column(String(40), default="")        # matrícula
     aircraft_model: Mapped[str] = mapped_column(String(60), default="")  # ej: Cessna 172
+    flight_number: Mapped[str] = mapped_column(String(20), default="")   # opcional, ej: AR1130
     liters: Mapped[int | None] = mapped_column(Integer, nullable=True)
     notes: Mapped[str] = mapped_column(Text, default="")
 

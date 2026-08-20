@@ -103,7 +103,7 @@
     <h2>Próximos turnos</h2>
     {% if proximos %}
       <table class="table">
-        <thead><tr><th>Cuándo</th><th>Aeroplanta</th><th>Cliente</th><th>Matrícula</th><th>Modelo</th></tr></thead>
+        <thead><tr><th>Cuándo</th><th>Aeroplanta</th><th>Cliente</th><th>Matrícula</th><th>Modelo</th><th>N° Vuelo</th></tr></thead>
         <tbody>
           {% for booking in proximos %}
             <tr>
@@ -112,6 +112,7 @@
               <td>{{ booking.user.display_name }}<br /><span class="muted">{{ booking.user.email }}</span></td>
               <td>{{ booking.aircraft or "—" }}</td>
               <td>{{ booking.aircraft_model or "—" }}</td>
+              <td>{{ booking.flight_number or "—" }}</td>
             </tr>
           {% endfor %}
         </tbody>

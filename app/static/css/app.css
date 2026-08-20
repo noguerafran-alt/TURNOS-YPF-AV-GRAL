@@ -92,6 +92,10 @@ code { font-size: .85em; background: #EEF3F9; padding: .1em .35em; border-radius
 .topbar__nav { display: flex; align-items: center; gap: 1.3rem; flex-wrap: wrap; }
 .topbar__nav a { color: var(--navy-800); font-size: .92rem; font-weight: 500; }
 .topbar__nav a:hover { color: var(--accent-dark); text-decoration: none; }
+/* Sin esto, el botón "Acceder" (.btn dentro de .topbar__nav) hereda el azul
+   de los links de texto y queda con texto azul sobre fondo azul: invisible.
+   .topbar__nav a tiene más especificidad que .btn solo, así que gana. */
+.topbar__nav a.btn, .topbar__nav a.btn:hover { color: #fff; }
 .topbar__admin { color: var(--accent-dark) !important; font-weight: 700; }
 .topbar__logout { margin: 0; }
 .linklike { background: none; border: 0; color: var(--muted); font: inherit; font-size: .92rem; cursor: pointer; padding: 0; }
