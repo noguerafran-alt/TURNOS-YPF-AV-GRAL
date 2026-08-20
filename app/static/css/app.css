@@ -1,13 +1,15 @@
 /* ============================================================
    Sistema de turnos — hoja de estilos
-   Misma paleta que el sitio institucional: navy + ámbar.
+   Paleta: azul YPF (#0451DD, del isologo) + ámbar como acento de CTA.
+   Los valores navy-900/700/600 se derivan matemáticamente del azul base
+   (oscurecido / aclarado) para que toda la escala quede coherente.
    ============================================================ */
 
 :root {
-  --navy-900: #071A33;
-  --navy-800: #0B2545;
-  --navy-700: #134074;
-  --navy-600: #1B5FA8;
+  --navy-900: #022C79;
+  --navy-800: #0451DD;   /* azul YPF exacto, tomado del isologo */
+  --navy-700: #3170E3;
+  --navy-600: #5B8DE8;
   --accent:   #F5A524;
   --accent-dark: #D98A0B;
   --accent-soft: #FFF4DF;
@@ -72,22 +74,28 @@ code { font-size: .85em; background: #EEF3F9; padding: .1em .35em; border-radius
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
 
-/* ===== Topbar ===== */
-.topbar { background: var(--navy-800); color: #EAF1F9; position: sticky; top: 0; z-index: 50; }
-.topbar__inner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 62px; flex-wrap: wrap; }
-.topbar__brand { display: inline-flex; align-items: center; gap: .6rem; color: #fff; font-family: var(--font-head); }
-.topbar__brand:hover { text-decoration: none; }
-.topbar__mark {
-  display: grid; place-items: center; width: 34px; height: 34px;
-  background: var(--accent); color: var(--navy-900); border-radius: 9px; font-size: 1.1rem;
+/* ===== Topbar =====
+   Fondo claro a propósito: el isologo de YPF es azul sólido y se pierde contra
+   un header oscuro (contraste ~2:1). Sobre blanco da 6.5:1, nítido y prolijo. */
+.topbar {
+  background: var(--surface); color: var(--text); position: sticky; top: 0; z-index: 50;
+  border-bottom: 1px solid var(--border); box-shadow: var(--shadow-sm);
 }
-.topbar__nav { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
-.topbar__nav a { color: #D6E2F0; font-size: .92rem; }
-.topbar__nav a:hover { color: var(--accent); text-decoration: none; }
-.topbar__admin { color: var(--accent) !important; font-weight: 600; }
+.topbar__inner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 62px; flex-wrap: wrap; }
+.topbar__brand { display: inline-flex; align-items: center; gap: .55rem; color: var(--text); font-family: var(--font-head); }
+.topbar__brand:hover { text-decoration: none; }
+.topbar__logo { display: block; width: 64px; height: auto; }
+.topbar__brand-text {
+  font-size: .8rem; font-weight: 600; color: var(--muted);
+  padding-left: .55rem; border-left: 1px solid var(--border);
+}
+.topbar__nav { display: flex; align-items: center; gap: 1.3rem; flex-wrap: wrap; }
+.topbar__nav a { color: var(--navy-800); font-size: .92rem; font-weight: 500; }
+.topbar__nav a:hover { color: var(--accent-dark); text-decoration: none; }
+.topbar__admin { color: var(--accent-dark) !important; font-weight: 700; }
 .topbar__logout { margin: 0; }
-.linklike { background: none; border: 0; color: #D6E2F0; font: inherit; font-size: .92rem; cursor: pointer; padding: 0; }
-.linklike:hover { color: var(--accent); }
+.linklike { background: none; border: 0; color: var(--muted); font: inherit; font-size: .92rem; cursor: pointer; padding: 0; }
+.linklike:hover { color: var(--danger); }
 
 /* ===== Botones ===== */
 .btn {
@@ -118,6 +126,7 @@ code { font-size: .85em; background: #EEF3F9; padding: .1em .35em; border-radius
   padding: clamp(1.2rem, 3vw, 2rem); box-shadow: var(--shadow-sm);
 }
 .card--narrow { max-width: 520px; margin-inline: auto; }
+.card__logo { display: block; width: 90px; height: auto; margin: 0 0 1.2rem; }
 .panel {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
   padding: clamp(1.2rem, 3vw, 1.8rem); box-shadow: var(--shadow-sm); margin-bottom: 1.5rem;
@@ -126,9 +135,31 @@ code { font-size: .85em; background: #EEF3F9; padding: .1em .35em; border-radius
   background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius);
   padding: 2.5rem 1.5rem; text-align: center; color: var(--muted);
 }
-.hero-lite { margin-bottom: 2rem; }
-.hero-lite h1 { margin-bottom: .4rem; }
-.hero-lite p { color: var(--muted); max-width: 60ch; }
+/* ===== Hero de la landing (foto real de abastecimiento) ===== */
+.hero {
+  position: relative;
+  display: flex; align-items: center;
+  min-height: clamp(280px, 40vw, 420px);
+  background-color: var(--navy-900);
+  background-size: cover; background-position: center 65%;
+  color: #fff;
+}
+.hero__overlay {
+  position: absolute; inset: 0;
+  /* Degradé: oscuro a la izquierda para que el texto siempre sea legible,
+     se aclara hacia la derecha para dejar ver la foto. */
+  background: linear-gradient(100deg, rgba(2,15,51,.92) 0%, rgba(2,44,121,.72) 45%, rgba(2,44,121,.28) 100%);
+}
+.hero__inner { position: relative; padding-block: clamp(2rem, 6vw, 3.5rem); max-width: 640px; }
+.hero__eyebrow {
+  display: inline-block; margin: 0 0 .6rem; padding: .3rem .8rem;
+  background: rgba(245,165,36,.18); border: 1px solid rgba(245,165,36,.5);
+  border-radius: var(--radius-pill); color: var(--accent);
+  font-family: var(--font-head); font-size: .72rem; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase;
+}
+.hero h1 { color: #fff; font-size: clamp(1.6rem, 3.4vw, 2.3rem); margin-bottom: .6rem; }
+.hero__text { color: rgba(255,255,255,.88); font-size: 1.02rem; max-width: 52ch; margin: 0; }
 .subhead { margin-top: 2rem; padding-bottom: .4rem; border-bottom: 2px solid var(--border); }
 .breadcrumb { font-size: .85rem; color: var(--muted); margin-bottom: 1rem; display: flex; gap: .45rem; flex-wrap: wrap; }
 .prose { white-space: normal; }
@@ -370,10 +401,13 @@ fieldset.field legend { font-family: var(--font-head); font-size: .88rem; font-w
 .errorcode { font-family: var(--font-head); font-size: 3.5rem; font-weight: 700; color: var(--accent); line-height: 1; margin: 0; }
 
 /* ===== Footer ===== */
-.footer { background: var(--navy-900); color: rgba(234,241,249,.7); padding: 1.5rem 0; font-size: .85rem; text-align: center; }
+.footer { background: var(--navy-900); color: rgba(234,241,249,.7); padding: 1.8rem 0; font-size: .85rem; text-align: center; }
 .footer p { margin: 0 0 .2rem; }
 .footer a { color: var(--accent); }
 .footer__muted { color: rgba(234,241,249,.5); font-size: .8rem; }
+/* El logo es un SVG azul sólido: sobre el footer oscuro se invierte a blanco
+   con un filtro CSS en vez de mantener un segundo archivo de logo. */
+.footer__logo { display: block; width: 56px; height: auto; margin: 0 auto .9rem; filter: brightness(0) invert(1); opacity: .92; }
 
 /* ===== Responsive ===== */
 @media (max-width: 640px) {

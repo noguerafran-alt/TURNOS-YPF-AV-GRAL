@@ -57,7 +57,7 @@ class Settings:
         }
 
         # --- Empresa (MVP de una sola empresa) ---
-        self.company_name: str = os.getenv("COMPANY_NAME", "Aeroplantas [NOMBRE]")
+        self.company_name: str = os.getenv("COMPANY_NAME", "Aeroplantas YPF")
         self.company_tagline: str = os.getenv(
             "COMPANY_TAGLINE", "Turnos de abastecimiento de combustible aeronáutico"
         )

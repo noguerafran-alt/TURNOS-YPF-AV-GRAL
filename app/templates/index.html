@@ -1,12 +1,20 @@
 {% extends "base.html" %}
 {% block title %}Aeroplantas disponibles{% endblock %}
 
-{% block content %}
-  <section class="hero-lite">
-    <h1>Reservá tu turno de abastecimiento</h1>
-    <p>{{ company_tagline }}. Elegí la aeroplanta y el producto para ver los horarios disponibles.</p>
+{% block hero %}
+  <section class="hero" style="background-image: url('/static/img/hero-aviacion.webp')">
+    <div class="hero__overlay" aria-hidden="true"></div>
+    <div class="wrap hero__inner">
+      <p class="hero__eyebrow">Abastecimiento aeronáutico</p>
+      <h1>Reservá tu turno de abastecimiento</h1>
+      <p class="hero__text">
+        {{ company_tagline }}. Elegí la aeroplanta y el producto para ver los horarios disponibles.
+      </p>
+    </div>
   </section>
+{% endblock %}
 
+{% block content %}
   {% if agendas %}
     <ul class="agenda-grid">
       {% for agenda in agendas %}

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{% block title %}Turnos{% endblock %} | {{ company_name }}</title>
   <meta name="description" content="{{ company_tagline }}" />
-  <meta name="theme-color" content="#0B2545" />
+  <meta name="theme-color" content="#0451DD" />
   <link rel="icon" href="/static/img/favicon.svg" type="image/svg+xml" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -19,8 +19,8 @@
   <header class="topbar">
     <div class="wrap topbar__inner">
       <a class="topbar__brand" href="/">
-        <span class="topbar__mark" aria-hidden="true">✈</span>
-        <span>Turnos <strong>{{ company_name }}</strong></span>
+        <img src="/static/img/logo-ypf.svg" alt="YPF" class="topbar__logo" width="74" height="20" />
+        <span class="topbar__brand-text">Turnos</span>
       </a>
 
       <nav class="topbar__nav" aria-label="Navegación principal">
@@ -40,12 +40,15 @@
     </div>
   </header>
 
+  {% block hero %}{% endblock %}
+
   <main class="wrap page">
     {% block content %}{% endblock %}
   </main>
 
   <footer class="footer">
     <div class="wrap">
+      <img src="/static/img/logo-ypf.svg" alt="YPF" class="footer__logo" width="64" height="17" />
       <p>© <span id="year">2026</span> {{ company_name }} — Sistema de turnos</p>
       <p class="footer__muted">
         ¿Problemas con tu reserva? Escribinos a <a href="mailto:{{ support_email }}">{{ support_email }}</a>
