@@ -1,0 +1,66 @@
+"""Configuración de Jinja2 y filtros compartidos por todas las plantillas."""
+
+from datetime import datetime
+from pathlib import Path
+
+from fastapi.templating import Jinja2Templates
+
+from app.config import settings
+
+TEMPLATES_DIR = Path(__file__).parent / "templates"
+
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+
+MONTHS = [
+    "enero", "febrero", "marzo", "abril", "mayo", "junio",
+    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+]
+MONTHS_SHORT = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+
+
+def _local(value: datetime) -> datetime:
+    """Pasa un datetime UTC a la zona horaria de la empresa."""
+    return value.astimezone(settings.tz)
+
+
+def fmt_time(value: datetime) -> str:
+    return _local(value).strftime("%H:%M")
+
+
+def fmt_date(value) -> str:
+    """18/08"""
+    return value.strftime("%d/%m")
+
+
+def fmt_date_long(value) -> str:
+    """Martes 18 de agosto de 2026"""
+    if isinstance(value, datetime):
+        value = _local(value).date()
+    return f"{DAYS[value.weekday()]} {value.day} de {MONTHS[value.month - 1]} de {value.year}"
+
+
+def fmt_datetime(value: datetime) -> str:
+    """Martes 18 de agosto de 2026, 15:40"""
+    return f"{fmt_date_long(value)}, {fmt_time(value)}"
+
+
+def weekday_name(value) -> str:
+    return DAYS[value.weekday()]
+
+
+def month_short(value: int) -> str:
+    return MONTHS_SHORT[value - 1]
+
+
+templates.env.filters["time"] = fmt_time
+templates.env.filters["date"] = fmt_date
+templates.env.filters["date_long"] = fmt_date_long
+templates.env.filters["datetime"] = fmt_datetime
+templates.env.filters["weekday"] = weekday_name
+templates.env.filters["month_short"] = month_short
+
+# Disponibles en todas las plantillas sin pasarlas por contexto
+templates.env.globals["company_name"] = settings.company_name
+templates.env.globals["company_tagline"] = settings.company_tagline
+templates.env.globals["support_email"] = settings.support_email

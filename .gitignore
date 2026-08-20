@@ -1,0 +1,27 @@
+# Configuración local con credenciales
+.env
+
+# Emails guardados en modo desarrollo
+outbox/
+
+# Base SQLite y los archivos que la acompañan en modo WAL
+*.db
+*.db-wal
+*.db-shm
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Sistema operativo / editores
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

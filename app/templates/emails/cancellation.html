@@ -1,0 +1,46 @@
+{% extends "emails/_layout.html" %}
+{% block subject %}Turno cancelado{% endblock %}
+{% block accent %}#C0392B{% endblock %}
+
+{% block content %}
+  <p style="margin:0 0 6px;font-size:13px;color:#C0392B;font-weight:bold;text-transform:uppercase;letter-spacing:.08em;">
+    Turno cancelado
+  </p>
+  <h1 style="margin:0 0 16px;font-size:21px;color:#0B2545;">Hola {{ user_name }},</h1>
+
+  {% if by_admin %}
+    <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#1C2733;">
+      La aeroplanta canceló este turno. Lamentamos el inconveniente: podés reservar
+      otro horario cuando quieras.
+    </p>
+  {% else %}
+    <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#1C2733;">
+      Cancelaste este turno. El horario ya quedó disponible para otros operadores.
+    </p>
+  {% endif %}
+
+  {% include "emails/_details.html" %}
+
+  <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
+    <tr>
+      <td style="background:#F5A524;border-radius:999px;">
+        <a href="{{ agenda_url }}"
+           style="display:inline-block;padding:12px 26px;color:#071A33;font-size:14px;font-weight:bold;text-decoration:none;">
+          Reservar otro horario
+        </a>
+      </td>
+    </tr>
+  </table>
+
+  {% if by_admin %}
+    <p style="margin:0;font-size:13px;line-height:1.6;color:#5A6A7D;">
+      Si necesitás una reprogramación urgente, escribinos a
+      <a href="mailto:{{ support_email }}" style="color:#134074;">{{ support_email }}</a>.
+    </p>
+  {% else %}
+    <p style="margin:0;font-size:13px;line-height:1.6;color:#5A6A7D;">
+      Si no fuiste vos, avisanos a
+      <a href="mailto:{{ support_email }}" style="color:#134074;">{{ support_email }}</a>.
+    </p>
+  {% endif %}
+{% endblock %}

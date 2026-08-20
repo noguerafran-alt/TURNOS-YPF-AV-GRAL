@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Usuarios{% endblock %}
+
+{% block content %}
+  <nav class="breadcrumb"><a href="/admin">Panel</a> <span>/</span> <span>Usuarios</span></nav>
+
+  <h1>Usuarios</h1>
+  <p class="muted">
+    Nivel 1 opera las aeroplantas y ve los turnos. Nivel 2 hace todo eso y además
+    administra usuarios.
+  </p>
+
+  {% if ok %}<p class="alert alert--ok">{{ ok }}</p>{% endif %}
+  {% if error %}<p class="alert alert--error">{{ error }}</p>{% endif %}
+
+  <section class="panel">
+    <h2>Dar de alta un usuario</h2>
+    <p class="muted">
+      Podés crear la cuenta antes del primer ingreso. Cuando la persona entre con
+      Google usando ese email, ya va a tener el nivel asignado.
+    </p>
+    <form method="post" action="/admin/usuarios/crear" class="form-row">
+      <div class="field">
+        <label for="nuevo_email">Email *</label>
+        <input type="email" id="nuevo_email" name="email" required placeholder="persona@empresa.com" />
+      </div>
+      <div class="field">
+        <label for="nuevo_nombre">Nombre</label>
+        <input type="text" id="nuevo_nombre" name="name" placeholder="Nombre y apellido" />
+      </div>
+      <div class="field">
+        <label for="nuevo_rol">Nivel</label>
+        <select id="nuevo_rol" name="role">
+          {% for r in roles %}
+            <option value="{{ r.value }}">{{ role_labels[r] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn--accent">Crear usuario</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Listado</h2>
+
+    <form method="get" class="form-row">
+      <div class="field">
+        <label for="q">Buscar</label>
+        <input type="search" id="q" name="q" value="{{ q }}" placeholder="Email, nombre o empresa" />
+      </div>
+      <button type="submit" class="btn btn--outline">Buscar</button>
+      {% if q %}<a class="btn btn--outline" href="/admin/usuarios">Limpiar</a>{% endif %}
+    </form>
+
+    {% if users %}
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Usuario</th><th>Contacto</th><th>Turnos próximos</th>
+            <th>Nivel</th><th>Estado</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+            <tr {% if u.is_blocked %}class="row--cancelled"{% endif %}>
+              <td>
+                <a href="/admin/usuarios/{{ u.id }}"><strong>{{ u.display_name }}</strong></a>
+                <br /><span class="muted">{{ u.email }}</span>
+                {% if u.company %}<br /><span class="muted">{{ u.company }}</span>{% endif %}
+              </td>
+              <td>
+                {{ u.phone or "—" }}
+                {% if u.last_login_at %}
+                  <br /><span class="muted">Último ingreso: {{ u.last_login_at|datetime }}</span>
+                {% else %}
+                  <br /><span class="muted">Nunca ingresó</span>
+                {% endif %}
+              </td>
+              <td>{{ upcoming.get(u.id, 0) }}</td>
+              <td>
+                <form method="post" action="/admin/usuarios/{{ u.id }}/nivel" class="inline-form">
+                  <select name="role" onchange="this.form.submit()"
+                          {% if u.id == user.id %}disabled title="No podés cambiarte el nivel a vos mismo"{% endif %}>
+                    {% for r in roles %}
+                      <option value="{{ r.value }}" {% if u.role == r.value %}selected{% endif %}>
+                        {{ role_labels[r] }}
+                      </option>
+                    {% endfor %}
+                  </select>
+                  <noscript><button type="submit" class="btn btn--sm">Guardar</button></noscript>
+                </form>
+              </td>
+              <td>
+                {% if u.is_blocked %}
+                  <span class="chip chip--cancelled">Bloqueado</span>
+                {% else %}
+                  <span class="chip chip--ok">Activo</span>
+                {% endif %}
+              </td>
+              <td class="table__actions">
+                {% if u.id != user.id %}
+                  <form method="post" action="/admin/usuarios/{{ u.id }}/bloqueo">
+                    <button type="submit" class="btn btn--sm {% if not u.is_blocked %}btn--danger{% else %}btn--outline{% endif %}">
+                      {% if u.is_blocked %}Desbloquear{% else %}Bloquear{% endif %}
+                    </button>
+                  </form>
+                {% else %}
+                  <span class="muted">Vos</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">No hay usuarios que coincidan con la búsqueda.</p>
+    {% endif %}
+  </section>
+
+  {% if bootstrap_emails %}
+    <p class="hint">
+      Los emails de <code>ADMIN_EMAILS</code> ({{ bootstrap_emails | join(", ") }})
+      recuperan el nivel 2 automáticamente al iniciar sesión. Es la llave de
+      emergencia para no quedarse afuera del panel.
+    </p>
+  {% endif %}
+{% endblock %}

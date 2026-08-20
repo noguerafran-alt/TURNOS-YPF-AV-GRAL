@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Mi perfil{% endblock %}
+
+{% block content %}
+  <div class="card card--narrow">
+    <h1>Mi perfil</h1>
+
+    {% if saved %}<p class="alert alert--ok">Datos guardados.</p>{% endif %}
+
+    <div class="profile">
+      {% if user.picture %}
+        <img class="profile__avatar" src="{{ user.picture }}" alt="" width="56" height="56" referrerpolicy="no-referrer" />
+      {% endif %}
+      <div>
+        <strong>{{ user.display_name }}</strong>
+        <p class="muted">{{ user.email }}</p>
+        {% if user.is_admin %}<span class="chip chip--admin">Administrador</span>{% endif %}
+      </div>
+    </div>
+
+    <form method="post" action="/perfil">
+      <div class="field">
+        <label for="name">Nombre y apellido</label>
+        <input type="text" id="name" name="name" value="{{ user.name }}" maxlength="160" />
+      </div>
+
+      <div class="field">
+        <label for="phone">Teléfono de contacto</label>
+        <input type="tel" id="phone" name="phone" value="{{ user.phone }}" maxlength="40"
+               placeholder="+54 9 11 0000-0000" />
+        <p class="hint">Lo usa la aeroplanta si necesita avisarte algo del turno.</p>
+      </div>
+
+      <div class="field">
+        <label for="company">Empresa / operador</label>
+        <input type="text" id="company" name="company" value="{{ user.company }}" maxlength="160" />
+      </div>
+
+      <button type="submit" class="btn btn--accent">Guardar cambios</button>
+    </form>
+  </div>
+{% endblock %}

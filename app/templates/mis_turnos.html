@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Mis turnos{% endblock %}
+
+{% block content %}
+  <h1>Mis turnos</h1>
+
+  <h2 class="subhead">Próximos</h2>
+  {% if upcoming %}
+    <ul class="booking-list">
+      {% for booking in upcoming %}
+        <li class="booking" data-booking="{{ booking.id }}">
+          <div class="booking__when">
+            <span class="booking__time">{{ booking.starts_at|time }}</span>
+            <span class="booking__date">{{ booking.starts_at|date_long }}</span>
+          </div>
+
+          <div class="booking__body">
+            <h3>{{ booking.agenda.full_name }}</h3>
+            {% if booking.agenda.location %}<p class="muted">{{ booking.agenda.location }}</p>{% endif %}
+            <p class="booking__meta">
+              {% if booking.aircraft %}<span>Matrícula: <strong>{{ booking.aircraft }}</strong></span>{% endif %}
+              {% if booking.aircraft_model %}<span>{{ booking.aircraft_model }}</span>{% endif %}
+              {% if booking.liters %}<span>{{ booking.liters }} L estimados</span>{% endif %}
+            </p>
+            {% if booking.notes %}<p class="muted">{{ booking.notes }}</p>{% endif %}
+          </div>
+
+          <div class="booking__actions">
+            <button type="button" class="btn btn--danger btn--sm js-cancel" data-id="{{ booking.id }}">
+              Cancelar
+            </button>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <div class="empty">
+      <p>No tenés turnos pendientes.</p>
+      <a class="btn" href="/">Reservar uno</a>
+    </div>
+  {% endif %}
+
+  {% if history %}
+    <h2 class="subhead">Historial</h2>
+    <ul class="booking-list booking-list--past">
+      {% for booking in history %}
+        <li class="booking booking--muted">
+          <div class="booking__when">
+            <span class="booking__time">{{ booking.starts_at|time }}</span>
+            <span class="booking__date">{{ booking.starts_at|date_long }}</span>
+          </div>
+          <div class="booking__body">
+            <h3>{{ booking.agenda.full_name }}</h3>
+            <p class="booking__meta">
+              {% if booking.status == "cancelled" %}
+                <span class="chip chip--cancelled">Cancelado</span>
+              {% else %}
+                <span class="chip">Realizado</span>
+              {% endif %}
+              {% if booking.aircraft %}<span>{{ booking.aircraft }}</span>{% endif %}
+            </p>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.querySelectorAll('.js-cancel').forEach((button) => {
+    button.addEventListener('click', async () => {
+      if (!confirm('¿Seguro que querés cancelar este turno? El horario queda libre para otro cliente.')) return;
+
+      button.disabled = true;
+      button.textContent = 'Cancelando…';
+
+      try {
+        const response = await fetch('/api/bookings/' + button.dataset.id + '/cancel', { method: 'POST' });
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          alert(data.detail || 'No pudimos cancelar el turno.');
+          button.disabled = false;
+          button.textContent = 'Cancelar';
+          return;
+        }
+        window.location.reload();
+      } catch (_) {
+        alert('Problema de conexión. Intentá de nuevo.');
+        button.disabled = false;
+        button.textContent = 'Cancelar';
+      }
+    });
+  });
+</script>
+{% endblock %}

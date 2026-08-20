@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}{{ agenda.full_name }}{% endblock %}
+
+{% block content %}
+  <nav class="breadcrumb" aria-label="Migas de pan">
+    <a href="/">Aeroplantas</a> <span aria-hidden="true">/</span> <span>{{ agenda.full_name }}</span>
+  </nav>
+
+  <!-- ===== Encabezado de la agenda ===== -->
+  <section class="agenda-head">
+    <div>
+      <span class="agenda-card__badge">{{ agenda.product or "Turnos" }}</span>
+      <h1>{{ agenda.name }}</h1>
+      {% if agenda.location %}<p class="agenda-head__loc">{{ agenda.location }}</p>{% endif %}
+      {% if agenda.address %}<p class="muted">{{ agenda.address }}</p>{% endif %}
+    </div>
+
+    <div class="agenda-head__actions">
+      {% if agenda.important_info %}
+        <button type="button" class="btn btn--accent" data-dialog-open="infoDialog">Información importante</button>
+      {% endif %}
+      <button type="button" class="btn btn--outline" data-dialog-open="hoursDialog">Horarios</button>
+    </div>
+  </section>
+
+  {% if agenda.description %}<p class="agenda-head__desc">{{ agenda.description }}</p>{% endif %}
+
+  <!-- ===== Navegación de semanas ===== -->
+  <nav class="weeknav" aria-label="Navegación de fechas">
+    <a class="btn btn--nav {% if not prev_monday %}is-disabled{% endif %}"
+       href="?d={{ prev_month.isoformat() }}"
+       {% if not prev_monday %}aria-disabled="true" tabindex="-1"{% endif %}>« Mes ant.</a>
+
+    <a class="btn btn--nav {% if not prev_monday %}is-disabled{% endif %}"
+       href="?d={{ prev_monday.isoformat() if prev_monday else '' }}"
+       aria-label="Semana anterior"
+       {% if not prev_monday %}aria-disabled="true" tabindex="-1"{% endif %}>‹</a>
+
+    <form class="weeknav__form" method="get">
+      <label class="sr-only" for="dateJump">Ir a una fecha</label>
+      <input type="date" id="dateJump" name="d" value="{{ selected_day.isoformat() }}"
+             onchange="this.form.submit()" />
+    </form>
+
+    <a class="btn btn--nav {% if not next_monday %}is-disabled{% endif %}"
+       href="?d={{ next_monday.isoformat() if next_monday else '' }}"
+       aria-label="Semana siguiente"
+       {% if not next_monday %}aria-disabled="true" tabindex="-1"{% endif %}>›</a>
+
+    <a class="btn btn--nav {% if not next_monday %}is-disabled{% endif %}"
+       href="?d={{ next_month.isoformat() }}"
+       {% if not next_monday %}aria-disabled="true" tabindex="-1"{% endif %}>Mes sig. »</a>
+  </nav>
+
+  <p class="weeknav__label">Semana del {{ monday|date }} al {{ sunday|date }}</p>
+
+  {% if not user %}
+    <p class="notice">
+      <a href="/auth/login?next=/a/{{ agenda.slug }}">Iniciá sesión</a> para confirmar un turno.
+      Podés mirar la disponibilidad sin cuenta.
+    </p>
+  {% endif %}
+
+  <!-- ===== Grilla semanal ===== -->
+  {% set days_with_service = week | selectattr("has_service") | list %}
+  {% if days_with_service %}
+    {% for day in week %}
+      {% if day.has_service %}
+        <section class="dayblock {% if day.day == today %}is-today{% endif %}">
+          <header class="dayblock__head">
+            <h2>
+              {{ day.day|weekday }} {{ day.day|date }}
+              {% if day.day == today %}<span class="chip chip--today">Hoy</span>{% endif %}
+            </h2>
+            <span class="dayblock__count">
+              {% if day.free_count %}{{ day.free_count }} disponibles{% else %}Sin cupos{% endif %}
+            </span>
+          </header>
+
+          <ul class="slots">
+            {% for slot in day.slots %}
+              <li>
+                {% if slot.status.value == "free" %}
+                  <button type="button" class="slot slot--free"
+                          data-slot="{{ slot.starts_at.isoformat() }}"
+                          data-label="{{ day.day|weekday }} {{ day.day|date }} a las {{ slot.label }}"
+                          {% if agenda.capacity > 1 %}title="{{ slot.free_places }} cupo(s) libre(s)"{% endif %}>
+                    {{ slot.label }}
+                    {% if agenda.capacity > 1 %}<small>{{ slot.free_places }} libres</small>{% endif %}
+                  </button>
+                {% elif slot.status.value == "mine" %}
+                  <span class="slot slot--mine" title="Ya reservaste este horario">
+                    {{ slot.label }}<small>Tu turno</small>
+                  </span>
+                {% elif slot.status.value == "taken" %}
+                  <span class="slot slot--taken" title="Sin cupos disponibles">{{ slot.label }}</span>
+                {% elif slot.status.value == "closed" %}
+                  <span class="slot slot--closed" title="Cerrado por la aeroplanta">{{ slot.label }}</span>
+                {% else %}
+                  <span class="slot slot--past" title="Fuera del plazo de reserva">{{ slot.label }}</span>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        </section>
+      {% endif %}
+    {% endfor %}
+
+    <ul class="legend" aria-label="Referencias">
+      <li><span class="dot dot--free"></span> Disponible</li>
+      <li><span class="dot dot--taken"></span> Ocupado</li>
+      <li><span class="dot dot--mine"></span> Tu turno</li>
+      <li><span class="dot dot--closed"></span> Cerrado</li>
+      <li><span class="dot dot--past"></span> Fuera de plazo</li>
+    </ul>
+  {% else %}
+    <div class="empty">
+      <h2>No hay atención esta semana</h2>
+      <p>Probá con la semana siguiente o consultá los horarios de la aeroplanta.</p>
+    </div>
+  {% endif %}
+
+  <!-- ===== Diálogo: confirmar turno ===== -->
+  <dialog id="bookDialog" class="dialog">
+    <form method="dialog" class="dialog__close-form">
+      <button class="dialog__close" aria-label="Cerrar">×</button>
+    </form>
+
+    <h2>Confirmar turno</h2>
+    <p class="dialog__slot" id="bookSlotLabel"></p>
+
+    <form id="bookForm" class="dialog__body">
+      <div class="field">
+        <label for="aircraft">Matrícula de la aeronave</label>
+        <input type="text" id="aircraft" name="aircraft" maxlength="40"
+               placeholder="LV-XXX" autocomplete="off" />
+      </div>
+
+      <div class="field">
+        <label for="aircraft_model">Modelo de la aeronave</label>
+        <input type="text" id="aircraft_model" name="aircraft_model" maxlength="60"
+               placeholder="Ej: Cessna 172" autocomplete="off" />
+      </div>
+
+      <div class="field">
+        <label for="liters">Litros estimados</label>
+        <input type="number" id="liters" name="liters" min="0" max="{{ max_liters }}" step="1"
+               placeholder="Ej: 200" />
+      </div>
+
+      <div class="field">
+        <label for="notes">Observaciones</label>
+        <textarea id="notes" name="notes" rows="3" maxlength="500"
+                  placeholder="Cualquier dato que le sirva al operador"></textarea>
+      </div>
+
+      <p class="dialog__error" id="bookError" role="alert" hidden></p>
+
+      <div class="dialog__actions">
+        <button type="button" class="btn btn--outline" data-dialog-close>Cancelar</button>
+        <button type="submit" class="btn btn--accent" id="bookSubmit">Confirmar turno</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ===== Diálogo: información importante ===== -->
+  {% if agenda.important_info %}
+    <dialog id="infoDialog" class="dialog">
+      <form method="dialog" class="dialog__close-form">
+        <button class="dialog__close" aria-label="Cerrar">×</button>
+      </form>
+      <h2>Información importante</h2>
+      <div class="dialog__body prose">{{ agenda.important_info | replace("\n", "<br>") | safe }}</div>
+      <div class="dialog__actions">
+        <button type="button" class="btn btn--accent" data-dialog-close>Entendido</button>
+      </div>
+    </dialog>
+  {% endif %}
+
+  <!-- ===== Diálogo: horarios de atención ===== -->
+  <dialog id="hoursDialog" class="dialog">
+    <form method="dialog" class="dialog__close-form">
+      <button class="dialog__close" aria-label="Cerrar">×</button>
+    </form>
+    <h2>Horarios de atención</h2>
+    <div class="dialog__body">
+      {% if agenda.rules %}
+        <ul class="hours">
+          {% for rule in agenda.rules|sort(attribute="weekday,start_time") %}
+            <li><strong>{{ rule.weekday_name }}</strong>
+              <span>{{ rule.start_time.strftime("%H:%M") }} a {{ rule.end_time.strftime("%H:%M") }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>Esta aeroplanta todavía no tiene horarios cargados.</p>
+      {% endif %}
+      <p class="muted">
+        Turnos cada {{ agenda.slot_minutes }} minutos · se reserva con {{ agenda.lead_time_hours }} h
+        de anticipación · se puede cancelar hasta {{ agenda.cancel_limit_hours }} h antes.
+      </p>
+    </div>
+  </dialog>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    window.AGENDA_SLUG = {{ agenda.slug | tojson }};
+    window.IS_LOGGED_IN = {{ (user is not none) | tojson }};
+    window.LOGIN_URL = {{ ("/auth/login?next=/a/" ~ agenda.slug) | tojson }};
+  </script>
+  <script src="/static/js/agenda.js" defer></script>
+{% endblock %}

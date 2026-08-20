@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Panel{% endblock %}
+
+{% block content %}
+  <div class="panel-head">
+    <h1>Panel de administración</h1>
+    {% if user.can_manage_users %}
+      <a class="btn btn--outline" href="/admin/usuarios">Administrar usuarios</a>
+    {% endif %}
+  </div>
+  <p class="muted">Entraste como <strong>{{ user.role_label }}</strong>.</p>
+
+  <ul class="stats">
+    <li><span class="stats__num">{{ stats.agendas }}</span><span>Aeroplantas</span></li>
+    <li><span class="stats__num">{{ stats.turnos_semana }}</span><span>Turnos esta semana</span></li>
+    <li><span class="stats__num">{{ stats.turnos_total }}</span><span>Turnos confirmados</span></li>
+    <li><span class="stats__num">{{ stats.clientes }}</span><span>Clientes registrados</span></li>
+  </ul>
+
+  <section class="panel">
+    <h2>Aeroplantas</h2>
+    {% if agendas %}
+      <table class="table">
+        <thead>
+          <tr><th>Aeroplanta</th><th>Ubicación</th><th>Slot</th><th>Cupo</th><th>Estado</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for agenda in agendas %}
+            <tr>
+              <td>
+                <strong>{{ agenda.name }}</strong>
+                {% if agenda.product %}<br /><span class="muted">{{ agenda.product }}</span>{% endif %}
+                <br /><code class="muted">/a/{{ agenda.slug }}</code>
+              </td>
+              <td>{{ agenda.location or "—" }}</td>
+              <td>{{ agenda.slot_minutes }} min</td>
+              <td>{{ agenda.capacity }}</td>
+              <td>
+                {% if agenda.is_active %}<span class="chip chip--ok">Activa</span>
+                {% else %}<span class="chip">Pausada</span>{% endif %}
+              </td>
+              <td class="table__actions">
+                <a class="btn btn--sm btn--outline" href="/admin/agendas/{{ agenda.id }}">Configurar</a>
+                <a class="btn btn--sm btn--outline" href="/admin/agendas/{{ agenda.id }}/turnos">Turnos</a>
+                <a class="btn btn--sm" href="/a/{{ agenda.slug }}" target="_blank" rel="noopener">Ver</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">Todavía no hay aeroplantas. Creá la primera con el formulario de abajo.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>Exportar turnos</h2>
+    <p class="muted">
+      Descarga todos los turnos de todas las aeroplantas en el rango elegido. Para una
+      aeroplanta puntual, usá el botón "Turnos" de la tabla de arriba.
+    </p>
+    <form method="get" action="/admin/turnos.csv" class="form-row">
+      <div class="field">
+        <label for="exp_desde">Desde</label>
+        <input type="date" id="exp_desde" name="desde" value="{{ export_from }}" />
+      </div>
+      <div class="field">
+        <label for="exp_hasta">Hasta</label>
+        <input type="date" id="exp_hasta" name="hasta" value="{{ export_to }}" />
+      </div>
+      <div class="field">
+        <label for="exp_estado">Estado</label>
+        <select id="exp_estado" name="estado">
+          <option value="todos">Todos</option>
+          <option value="confirmados">Solo confirmados</option>
+          <option value="cancelados">Solo cancelados</option>
+        </select>
+      </div>
+      <button type="submit" class="btn btn--accent">Descargar CSV</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Nueva aeroplanta</h2>
+    <form method="post" action="/admin/agendas" class="form-row">
+      <div class="field">
+        <label for="name">Sede *</label>
+        <input type="text" id="name" name="name" required placeholder="San Fernando" />
+      </div>
+      <div class="field">
+        <label for="product">Producto</label>
+        <input type="text" id="product" name="product" placeholder="AVGAS 100LL" />
+      </div>
+      <div class="field">
+        <label for="location">Ubicación</label>
+        <input type="text" id="location" name="location" placeholder="Provincia de Buenos Aires" />
+      </div>
+      <button type="submit" class="btn btn--accent">Crear aeroplanta</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Próximos turnos</h2>
+    {% if proximos %}
+      <table class="table">
+        <thead><tr><th>Cuándo</th><th>Aeroplanta</th><th>Cliente</th><th>Matrícula</th><th>Modelo</th></tr></thead>
+        <tbody>
+          {% for booking in proximos %}
+            <tr>
+              <td><strong>{{ booking.starts_at|time }}</strong><br /><span class="muted">{{ booking.starts_at|date_long }}</span></td>
+              <td>{{ booking.agenda.full_name }}</td>
+              <td>{{ booking.user.display_name }}<br /><span class="muted">{{ booking.user.email }}</span></td>
+              <td>{{ booking.aircraft or "—" }}</td>
+              <td>{{ booking.aircraft_model or "—" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">No hay turnos reservados hacia adelante.</p>
+    {% endif %}
+  </section>
+{% endblock %}

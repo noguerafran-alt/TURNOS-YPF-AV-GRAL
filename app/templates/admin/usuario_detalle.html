@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}{{ target.display_name }}{% endblock %}
+
+{% block content %}
+  <nav class="breadcrumb">
+    <a href="/admin">Panel</a> <span>/</span>
+    <a href="/admin/usuarios">Usuarios</a> <span>/</span> <span>{{ target.display_name }}</span>
+  </nav>
+
+  <h1>{{ target.display_name }}</h1>
+
+  <section class="panel">
+    <h2>Datos del cliente</h2>
+    <dl class="datalist">
+      <div><dt>Email</dt><dd><a href="mailto:{{ target.email }}">{{ target.email }}</a></dd></div>
+      <div><dt>Teléfono</dt><dd>{{ target.phone or "—" }}</dd></div>
+      <div><dt>Empresa / operador</dt><dd>{{ target.company or "—" }}</dd></div>
+      <div><dt>Nivel</dt><dd>{{ target.role_label }}</dd></div>
+      <div><dt>Estado</dt>
+        <dd>{% if target.is_blocked %}
+              <span class="chip chip--cancelled">Bloqueado</span>
+            {% else %}
+              <span class="chip chip--ok">Activo</span>
+            {% endif %}
+        </dd>
+      </div>
+      <div><dt>Registrado</dt><dd>{{ target.created_at|datetime if target.created_at else "—" }}</dd></div>
+      <div><dt>Último ingreso</dt>
+        <dd>{{ target.last_login_at|datetime if target.last_login_at else "Nunca ingresó" }}</dd>
+      </div>
+      <div><dt>Cuenta de Google</dt>
+        <dd>{% if target.google_sub %}Vinculada{% else %}Todavía no ingresó{% endif %}</dd>
+      </div>
+    </dl>
+
+    <div class="detail-actions">
+      <form method="post" action="/admin/usuarios/{{ target.id }}/nivel" class="inline-form">
+        <label class="sr-only" for="rol">Nivel</label>
+        <select id="rol" name="role" {% if target.id == user.id %}disabled{% endif %}>
+          {% for r in roles %}
+            <option value="{{ r.value }}" {% if target.role == r.value %}selected{% endif %}>
+              {{ role_labels[r] }}
+            </option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn--sm" {% if target.id == user.id %}disabled{% endif %}>
+          Cambiar nivel
+        </button>
+      </form>
+
+      {% if target.id != user.id %}
+        <form method="post" action="/admin/usuarios/{{ target.id }}/bloqueo">
+          <button type="submit" class="btn btn--sm {% if not target.is_blocked %}btn--danger{% else %}btn--outline{% endif %}">
+            {% if target.is_blocked %}Desbloquear cuenta{% else %}Bloquear cuenta{% endif %}
+          </button>
+        </form>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Turnos ({{ bookings | length }})</h2>
+    {% if bookings %}
+      <table class="table">
+        <thead>
+          <tr><th>Cuándo</th><th>Aeroplanta</th><th>Matrícula</th><th>Modelo</th>
+              <th>Litros</th><th>Estado</th><th>Observaciones</th></tr>
+        </thead>
+        <tbody>
+          {% for b in bookings %}
+            <tr {% if b.status == "cancelled" %}class="row--cancelled"{% endif %}>
+              <td><strong>{{ b.starts_at|time }}</strong><br />
+                  <span class="muted">{{ b.starts_at|date_long }}</span></td>
+              <td>{{ b.agenda.full_name }}</td>
+              <td>{{ b.aircraft or "—" }}</td>
+              <td>{{ b.aircraft_model or "—" }}</td>
+              <td>{{ b.liters if b.liters else "—" }}</td>
+              <td>
+                {% if b.status == "cancelled" %}
+                  <span class="chip chip--cancelled">Cancelado</span>
+                {% elif b.starts_at > now %}
+                  <span class="chip chip--ok">Confirmado</span>
+                {% else %}
+                  <span class="chip">Realizado</span>
+                {% endif %}
+              </td>
+              <td class="muted">{{ b.notes or "—" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">Este usuario todavía no reservó ningún turno.</p>
+    {% endif %}
+  </section>
+{% endblock %}

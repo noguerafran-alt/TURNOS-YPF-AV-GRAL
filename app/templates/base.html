@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Turnos{% endblock %} | {{ company_name }}</title>
+  <meta name="description" content="{{ company_tagline }}" />
+  <meta name="theme-color" content="#0B2545" />
+  <link rel="icon" href="/static/img/favicon.svg" type="image/svg+xml" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/static/css/app.css" />
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap topbar__inner">
+      <a class="topbar__brand" href="/">
+        <span class="topbar__mark" aria-hidden="true">✈</span>
+        <span>Turnos <strong>{{ company_name }}</strong></span>
+      </a>
+
+      <nav class="topbar__nav" aria-label="Navegación principal">
+        <a href="/">Aeroplantas</a>
+        {% if user %}
+          <a href="/mis-turnos">Mis turnos</a>
+          <a href="/perfil">Mi perfil</a>
+          {% if user.is_admin %}<a class="topbar__admin" href="/admin">Panel</a>{% endif %}
+          {% if user.can_manage_users %}<a class="topbar__admin" href="/admin/usuarios">Usuarios</a>{% endif %}
+          <form action="/auth/logout" method="post" class="topbar__logout">
+            <button type="submit" class="linklike">Salir</button>
+          </form>
+        {% else %}
+          <a class="btn btn--sm" href="/auth/login?next={{ request.url.path }}">Acceder</a>
+        {% endif %}
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap page">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">
+    <div class="wrap">
+      <p>© <span id="year">2026</span> {{ company_name }} — Sistema de turnos</p>
+      <p class="footer__muted">
+        ¿Problemas con tu reserva? Escribinos a <a href="mailto:{{ support_email }}">{{ support_email }}</a>
+      </p>
+    </div>
+  </footer>
+
+  <script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

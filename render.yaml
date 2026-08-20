@@ -1,0 +1,91 @@
+# ============================================================
+# Render — Web Service con disco persistente (SQLite)
+#
+# La base es un archivo SQLite en un disco de Render montado en /var/data.
+# No hay servicio de Postgres: menos partes móviles y costo fijo bajo.
+#
+# CONSECUENCIAS DE USAR UN DISCO (importantes):
+#   * El servicio NO puede tener más de una instancia. Un disco se monta en un
+#     solo servicio y en una sola instancia a la vez.
+#   * Los deploys tienen una interrupción de unos segundos: Render tiene que
+#     apagar la instancia vieja para liberar el disco antes de montar la nueva.
+#   * Por lo mismo NO se puede usar un Cron Job aparte para los recordatorios:
+#     no vería la base. La app los manda sola, cada hora (app/reminders.py).
+#   * Los discos requieren un plan pago (starter o superior); no existen en free.
+#
+# Si algún día hace falta escalar a varias instancias: crear una base Postgres,
+# cambiar DATABASE_URL y sacar el bloque `disk`. El código ya soporta las dos.
+#
+# DESPUÉS DEL PRIMER DEPLOY, completar en el dashboard las variables marcadas
+# `sync: false` y agregar en Google Cloud la URI de redirección:
+#   https://TU-SERVICIO.onrender.com/auth/google/callback
+# ============================================================
+services:
+  - type: web
+    name: turnos-ypf-av-gral
+    runtime: python
+    plan: starter                  # necesario para tener disco
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+
+    # Un solo worker y una sola instancia: es la condición para que SQLite sea
+    # seguro. Con varios procesos escribiendo el mismo archivo aparecen bloqueos.
+    numInstances: 1
+
+    disk:
+      name: turnos-data
+      mountPath: /var/data
+      sizeGB: 1                    # se puede agrandar después, nunca achicar
+
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+
+      # Cuatro barras: tres del esquema + la raíz de la ruta absoluta
+      - key: DATABASE_URL
+        value: sqlite:////var/data/turnos.db
+
+      - key: SECRET_KEY
+        generateValue: true        # Render genera una clave aleatoria
+      - key: ENVIRONMENT
+        value: production
+      - key: DEV_LOGIN
+        value: "false"
+
+      # --- Google OAuth: se cargan a mano en el dashboard ---
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+
+      # --- Quién entra al panel (nivel 2) ---
+      - key: ADMIN_EMAILS
+        sync: false
+
+      # --- Emails (Resend). Si todavía no los vas a usar, poné EMAIL_ENABLED=false ---
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false                # Turnos Aeroplantas <turnos@tudominio.com>
+      - key: EMAIL_ENABLED
+        value: "true"
+      - key: REMINDER_HOURS_BEFORE
+        value: "24"
+      - key: REMINDER_SCHEDULER
+        value: "true"              # la app manda los recordatorios sola
+
+      # --- Datos de la empresa ---
+      - key: COMPANY_NAME
+        sync: false
+      - key: COMPANY_TAGLINE
+        sync: false
+      - key: SUPPORT_EMAIL
+        sync: false
+      - key: TIMEZONE
+        value: America/Argentina/Buenos_Aires
+
+      # URL pública del servicio: de acá sale el callback de Google
+      - key: BASE_URL
+        sync: false                # https://turnos-ypf-av-gral.onrender.com

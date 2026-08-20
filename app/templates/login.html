@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Acceder{% endblock %}
+
+{% block content %}
+  <div class="card card--narrow">
+    <h1>Acceder</h1>
+    <p class="muted">Entrá con tu cuenta para reservar turnos y ver tu historial.</p>
+
+    {% if error %}<p class="alert alert--error">{{ error }}</p>{% endif %}
+
+    {% if google_enabled %}
+      <a class="btn btn--google btn--block" href="/auth/google?next={{ next | urlencode }}">
+        <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">
+          <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/>
+          <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.81.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/>
+          <path fill="#FBBC05" d="M3.97 10.72a5.4 5.4 0 0 1 0-3.44V4.95H.96a9 9 0 0 0 0 8.1l3.01-2.33z"/>
+          <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.9 11.43 0 9 0A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/>
+        </svg>
+        Continuar con Google
+      </a>
+    {% else %}
+      <p class="alert alert--warn">
+        El login con Google todavía no está configurado en este servidor.
+      </p>
+    {% endif %}
+
+    {% if dev_login %}
+      <div class="devbox">
+        <p class="devbox__title">Acceso de desarrollo</p>
+        <p class="muted">
+          Visible solo con <code>DEV_LOGIN=true</code> fuera de producción. Sirve para probar
+          la app sin configurar Google.
+        </p>
+        <form method="post" action="/auth/dev-login" class="devbox__form">
+          <input type="hidden" name="next" value="{{ next }}" />
+          <div class="field">
+            <label for="devEmail">Email</label>
+            <input type="email" id="devEmail" name="email" required placeholder="piloto@ejemplo.com" />
+          </div>
+          <div class="field">
+            <label for="devName">Nombre</label>
+            <input type="text" id="devName" name="name" placeholder="Nombre y apellido" />
+          </div>
+          <button type="submit" class="btn btn--outline btn--block">Entrar sin Google</button>
+        </form>
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}

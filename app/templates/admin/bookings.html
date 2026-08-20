@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Turnos · {{ agenda.name }}{% endblock %}
+
+{% block content %}
+  <nav class="breadcrumb">
+    <a href="/admin">Panel</a> <span>/</span>
+    <a href="/admin/agendas/{{ agenda.id }}">{{ agenda.full_name }}</a> <span>/</span> <span>Turnos</span>
+  </nav>
+
+  <h1>Turnos de {{ agenda.full_name }}</h1>
+
+  <nav class="weeknav">
+    <a class="btn btn--nav" href="?d={{ prev_monday.isoformat() }}">‹ Semana anterior</a>
+    <span class="weeknav__label">Semana del {{ monday|date }} al {{ sunday|date }}</span>
+    <a class="btn btn--nav" href="?d={{ next_monday.isoformat() }}">Semana siguiente ›</a>
+  </nav>
+
+  <!-- ===== Exportar a CSV ===== -->
+  <details class="export" {% if bookings %}open{% endif %}>
+    <summary>Exportar a CSV</summary>
+    <form method="get" action="/admin/agendas/{{ agenda.id }}/turnos.csv" class="subform export__form">
+      <div class="field">
+        <label for="desde">Desde</label>
+        <input type="date" id="desde" name="desde" value="{{ monday.isoformat() }}" />
+      </div>
+      <div class="field">
+        <label for="hasta">Hasta</label>
+        <input type="date" id="hasta" name="hasta" value="{{ sunday.isoformat() }}" />
+      </div>
+      <div class="field">
+        <label for="estado">Estado</label>
+        <select id="estado" name="estado">
+          <option value="todos">Todos</option>
+          <option value="confirmados">Solo confirmados</option>
+          <option value="cancelados">Solo cancelados</option>
+        </select>
+      </div>
+      <button type="submit" class="btn btn--accent">Descargar CSV</button>
+    </form>
+    <p class="hint">
+      Separador punto y coma y codificación UTF-8 con BOM: se abre directo en Excel
+      en español sin tener que importar nada.
+    </p>
+  </details>
+
+  {% if bookings %}
+    <table class="table">
+      <thead>
+        <tr><th>Horario</th><th>Cliente</th><th>Contacto</th><th>Matrícula</th><th>Modelo</th><th>Litros</th><th>Estado</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for booking in bookings %}
+          <tr {% if booking.status == "cancelled" %}class="row--cancelled"{% endif %}>
+            <td>
+              <strong>{{ booking.starts_at|time }}</strong>
+              <br /><span class="muted">{{ booking.starts_at|date_long }}</span>
+            </td>
+            <td>
+              {{ booking.user.display_name }}
+              {% if booking.user.company %}<br /><span class="muted">{{ booking.user.company }}</span>{% endif %}
+            </td>
+            <td>
+              <span class="muted">{{ booking.user.email }}</span>
+              {% if booking.user.phone %}<br />{{ booking.user.phone }}{% endif %}
+            </td>
+            <td>{{ booking.aircraft or "—" }}</td>
+            <td>{{ booking.aircraft_model or "—" }}</td>
+            <td>{{ booking.liters if booking.liters else "—" }}</td>
+            <td>
+              {% if booking.status == "cancelled" %}
+                <span class="chip chip--cancelled">Cancelado</span>
+              {% else %}
+                <span class="chip chip--ok">Confirmado</span>
+              {% endif %}
+            </td>
+            <td class="table__actions">
+              {% if booking.status != "cancelled" %}
+                <button type="button" class="btn btn--sm btn--danger js-admin-cancel" data-id="{{ booking.id }}">
+                  Cancelar
+                </button>
+              {% endif %}
+            </td>
+          </tr>
+          {% if booking.notes %}
+            <tr class="row--notes">
+              <td colspan="8"><span class="muted">Observaciones:</span> {{ booking.notes }}</td>
+            </tr>
+          {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="empty"><p>No hay turnos reservados en esta semana.</p></div>
+  {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.querySelectorAll('.js-admin-cancel').forEach((button) => {
+    button.addEventListener('click', async () => {
+      if (!confirm('¿Cancelar este turno? El cliente pierde la reserva y el horario queda libre.')) return;
+      button.disabled = true;
+      try {
+        const response = await fetch('/api/bookings/' + button.dataset.id + '/cancel', { method: 'POST' });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          alert(data.detail || 'No pudimos cancelar el turno.');
+          button.disabled = false;
+          return;
+        }
+        window.location.reload();
+      } catch (_) {
+        alert('Problema de conexión.');
+        button.disabled = false;
+      }
+    });
+  });
+</script>
+{% endblock %}

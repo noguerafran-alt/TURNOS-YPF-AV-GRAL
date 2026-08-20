@@ -1,0 +1,56 @@
+{# Layout base de los emails.
+   Los estilos van inline y la estructura usa tablas: Outlook y Gmail ignoran
+   buena parte del CSS moderno (flex, grid, variables). #}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block subject %}{{ company_name }}{% endblock %}</title>
+</head>
+<body style="margin:0;padding:0;background:#F4F7FB;font-family:Helvetica,Arial,sans-serif;color:#1C2733;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F4F7FB;padding:24px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+               style="max-width:560px;background:#FFFFFF;border-radius:14px;overflow:hidden;box-shadow:0 2px 8px rgba(7,26,51,.08);">
+
+          <!-- Encabezado -->
+          <tr>
+            <td style="background:#0B2545;padding:20px 28px;">
+              <p style="margin:0;color:#FFFFFF;font-size:17px;font-weight:bold;">
+                <span style="color:#F5A524;">✈</span> {{ company_name }}
+              </p>
+              <p style="margin:2px 0 0;color:#9FB3CC;font-size:12px;">Sistema de turnos</p>
+            </td>
+          </tr>
+
+          <!-- Banda de color según el tipo de mensaje -->
+          <tr><td style="height:4px;background:{% block accent %}#F5A524{% endblock %};font-size:0;line-height:0;">&nbsp;</td></tr>
+
+          <!-- Contenido -->
+          <tr>
+            <td style="padding:28px;">
+              {% block content %}{% endblock %}
+            </td>
+          </tr>
+
+          <!-- Pie -->
+          <tr>
+            <td style="padding:18px 28px;background:#F4F7FB;border-top:1px solid #DCE4EE;">
+              <p style="margin:0 0 6px;font-size:12px;color:#5A6A7D;">
+                ¿Dudas con tu reserva? Escribinos a
+                <a href="mailto:{{ support_email }}" style="color:#134074;">{{ support_email }}</a>.
+              </p>
+              <p style="margin:0;font-size:11px;color:#8494A6;">
+                Recibís este email porque reservaste un turno en {{ company_name }}.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

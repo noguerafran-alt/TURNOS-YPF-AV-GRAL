@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Error {{ status_code }}{% endblock %}
+
+{% block content %}
+  <div class="card card--narrow center">
+    <p class="errorcode">{{ status_code }}</p>
+    <h1>
+      {% if status_code == 404 %}No encontramos esta página
+      {% elif status_code == 403 %}No tenés permiso
+      {% elif status_code == 401 %}Necesitás iniciar sesión
+      {% else %}Algo salió mal
+      {% endif %}
+    </h1>
+    <p class="muted">{{ detail }}</p>
+    <a class="btn btn--accent" href="/">Volver al inicio</a>
+  </div>
+{% endblock %}

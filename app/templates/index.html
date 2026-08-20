@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Aeroplantas disponibles{% endblock %}
+
+{% block content %}
+  <section class="hero-lite">
+    <h1>Reservá tu turno de abastecimiento</h1>
+    <p>{{ company_tagline }}. Elegí la aeroplanta y el producto para ver los horarios disponibles.</p>
+  </section>
+
+  {% if agendas %}
+    <ul class="agenda-grid">
+      {% for agenda in agendas %}
+        <li class="agenda-card">
+          <div class="agenda-card__head">
+            <span class="agenda-card__badge">{{ agenda.product or "Turnos" }}</span>
+            <h2>{{ agenda.name }}</h2>
+            {% if agenda.location %}
+              <p class="agenda-card__loc">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                  <path d="M12 21s7-4.5 7-10a7 7 0 1 0-14 0c0 5.5 7 10 7 10z" stroke-linejoin="round"/>
+                  <circle cx="12" cy="11" r="2.6"/>
+                </svg>
+                {{ agenda.location }}
+              </p>
+            {% endif %}
+          </div>
+
+          {% if agenda.description %}
+            <p class="agenda-card__desc">{{ agenda.description }}</p>
+          {% endif %}
+
+          <dl class="agenda-card__meta">
+            <div><dt>Duración</dt><dd>{{ agenda.slot_minutes }} min</dd></div>
+            <div><dt>Cupos por horario</dt><dd>{{ agenda.capacity }}</dd></div>
+            <div><dt>Anticipación</dt><dd>{{ agenda.lead_time_hours }} h</dd></div>
+          </dl>
+
+          <a class="btn btn--block" href="/a/{{ agenda.slug }}">Ver horarios</a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <div class="empty">
+      <h2>Todavía no hay aeroplantas publicadas</h2>
+      {% if user and user.is_admin %}
+        <p>Creá la primera desde el <a href="/admin">panel de administración</a>.</p>
+      {% else %}
+        <p>Volvé a intentar más tarde o escribinos a <a href="mailto:{{ support_email }}">{{ support_email }}</a>.</p>
+      {% endif %}
+    </div>
+  {% endif %}
+{% endblock %}

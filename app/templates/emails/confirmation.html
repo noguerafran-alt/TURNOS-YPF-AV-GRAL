@@ -1,0 +1,46 @@
+{% extends "emails/_layout.html" %}
+{% block subject %}Turno confirmado{% endblock %}
+{% block accent %}#157F4A{% endblock %}
+
+{% block content %}
+  <p style="margin:0 0 6px;font-size:13px;color:#157F4A;font-weight:bold;text-transform:uppercase;letter-spacing:.08em;">
+    ✓ Turno confirmado
+  </p>
+  <h1 style="margin:0 0 16px;font-size:21px;color:#0B2545;">Hola {{ user_name }},</h1>
+  <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#1C2733;">
+    Tu turno quedó reservado. Te esperamos:
+  </p>
+
+  {% include "emails/_details.html" %}
+
+  {% if important_info %}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+           style="background:#FFF4DF;border:1px solid #F0D49A;border-radius:10px;margin:0 0 20px;">
+      <tr>
+        <td style="padding:16px 20px;">
+          <p style="margin:0 0 6px;font-size:13px;font-weight:bold;color:#8A6100;">Información importante</p>
+          <p style="margin:0;font-size:14px;line-height:1.6;color:#5C4200;">
+            {{ important_info | replace("\n", "<br />") | safe }}
+          </p>
+        </td>
+      </tr>
+    </table>
+  {% endif %}
+
+  <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
+    <tr>
+      <td style="background:#F5A524;border-radius:999px;">
+        <a href="{{ bookings_url }}"
+           style="display:inline-block;padding:12px 26px;color:#071A33;font-size:14px;font-weight:bold;text-decoration:none;">
+          Ver mis turnos
+        </a>
+      </td>
+    </tr>
+  </table>
+
+  <p style="margin:0;font-size:13px;line-height:1.6;color:#5A6A7D;">
+    Si no vas a poder asistir, cancelalo desde
+    <a href="{{ bookings_url }}" style="color:#134074;">Mis turnos</a>
+    hasta {{ cancel_limit_hours }} h antes: el horario queda libre para otro operador.
+  </p>
+{% endblock %}

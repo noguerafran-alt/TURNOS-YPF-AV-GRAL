@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}{{ agenda.name }} · Configuración{% endblock %}
+
+{% block content %}
+  <nav class="breadcrumb"><a href="/admin">Panel</a> <span>/</span> <span>{{ agenda.full_name }}</span></nav>
+
+  <h1>{{ agenda.full_name }}</h1>
+  <p class="muted">URL pública: <a href="/a/{{ agenda.slug }}" target="_blank" rel="noopener">/a/{{ agenda.slug }}</a></p>
+
+  {% if saved %}<p class="alert alert--ok">Cambios guardados.</p>{% endif %}
+  {% if error %}<p class="alert alert--error">{{ error }}</p>{% endif %}
+
+  <!-- ===== Datos de la agenda ===== -->
+  <section class="panel">
+    <h2>Datos y reglas</h2>
+    <form method="post" action="/admin/agendas/{{ agenda.id }}">
+      <div class="grid-2">
+        <div class="field">
+          <label for="name">Sede *</label>
+          <input type="text" id="name" name="name" value="{{ agenda.name }}" required />
+        </div>
+        <div class="field">
+          <label for="product">Producto</label>
+          <input type="text" id="product" name="product" value="{{ agenda.product }}" />
+        </div>
+        <div class="field">
+          <label for="location">Ubicación</label>
+          <input type="text" id="location" name="location" value="{{ agenda.location }}" />
+        </div>
+        <div class="field">
+          <label for="address">Dirección</label>
+          <input type="text" id="address" name="address" value="{{ agenda.address }}" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="description">Descripción</label>
+        <textarea id="description" name="description" rows="2">{{ agenda.description }}</textarea>
+      </div>
+
+      <div class="field">
+        <label for="important_info">Información importante</label>
+        <textarea id="important_info" name="important_info" rows="4">{{ agenda.important_info }}</textarea>
+        <p class="hint">Se muestra en un botón destacado de la agenda. Los saltos de línea se respetan.</p>
+      </div>
+
+      <div class="grid-3">
+        <div class="field">
+          <label for="slot_minutes">Duración del turno (min)</label>
+          <input type="number" id="slot_minutes" name="slot_minutes" value="{{ agenda.slot_minutes }}" min="5" max="240" />
+        </div>
+        <div class="field">
+          <label for="capacity">Cupos por horario</label>
+          <input type="number" id="capacity" name="capacity" value="{{ agenda.capacity }}" min="1" max="50" />
+          <p class="hint">Surtidores o posiciones en simultáneo.</p>
+        </div>
+        <div class="field">
+          <label for="lead_time_hours">Anticipación mínima (h)</label>
+          <input type="number" id="lead_time_hours" name="lead_time_hours" value="{{ agenda.lead_time_hours }}" min="0" max="168" />
+        </div>
+        <div class="field">
+          <label for="horizon_days">Se reserva hasta (días)</label>
+          <input type="number" id="horizon_days" name="horizon_days" value="{{ agenda.horizon_days }}" min="1" max="365" />
+        </div>
+        <div class="field">
+          <label for="cancel_limit_hours">Cancelación hasta (h antes)</label>
+          <input type="number" id="cancel_limit_hours" name="cancel_limit_hours" value="{{ agenda.cancel_limit_hours }}" min="0" max="168" />
+        </div>
+        <div class="field field--check">
+          <label>
+            <input type="checkbox" name="is_active" value="true" {% if agenda.is_active %}checked{% endif %} />
+            Aeroplanta activa (visible para clientes)
+          </label>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn--accent">Guardar</button>
+    </form>
+  </section>
+
+  <!-- ===== Franjas horarias ===== -->
+  <section class="panel">
+    <h2>Horarios de atención</h2>
+    <p class="muted">
+      Cada franja genera turnos de {{ agenda.slot_minutes }} minutos. Podés cargar varias por día
+      (ej: mañana y tarde) para dejar un corte en el medio.
+    </p>
+
+    {% if rules %}
+      <table class="table">
+        <thead><tr><th>Día</th><th>Desde</th><th>Hasta</th><th>Turnos</th><th></th></tr></thead>
+        <tbody>
+          {% for rule in rules %}
+            <tr>
+              <td>{{ rule.weekday_name }}</td>
+              <td>{{ rule.start_time.strftime("%H:%M") }}</td>
+              <td>{{ rule.end_time.strftime("%H:%M") }}</td>
+              <td class="muted">
+                {% set mins = (rule.end_time.hour * 60 + rule.end_time.minute) - (rule.start_time.hour * 60 + rule.start_time.minute) %}
+                {% if mins <= 0 %}{% set mins = mins + 1440 %}{% endif %}
+                {{ (mins // agenda.slot_minutes) }}
+              </td>
+              <td class="table__actions">
+                <form method="post" action="/admin/agendas/{{ agenda.id }}/rules/{{ rule.id }}/delete">
+                  <button type="submit" class="btn btn--sm btn--danger">Borrar</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="alert alert--warn">
+        Sin horarios cargados, la aeroplanta no muestra ningún turno disponible.
+      </p>
+    {% endif %}
+
+    <form method="post" action="/admin/agendas/{{ agenda.id }}/rules" class="subform">
+      <fieldset class="field">
+        <legend>Días</legend>
+        <div class="checkrow">
+          {% for name in ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"] %}
+            <label class="checkrow__item">
+              <input type="checkbox" name="weekday" value="{{ loop.index0 }}" />
+              <span>{{ name[:3] }}</span>
+            </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+
+      <div class="field">
+        <label for="start_time">Desde</label>
+        <input type="time" id="start_time" name="start_time" required value="08:00" />
+      </div>
+      <div class="field">
+        <label for="end_time">Hasta</label>
+        <input type="time" id="end_time" name="end_time" required value="18:00" />
+      </div>
+
+      <button type="submit" class="btn">Agregar franja</button>
+    </form>
+  </section>
+
+  <!-- ===== Cortes ===== -->
+  <section class="panel">
+    <h2>Cortes y feriados</h2>
+    <p class="muted">Bloquean un rango de tiempo aunque haya franja horaria cargada.</p>
+
+    {% if closures %}
+      <table class="table">
+        <thead><tr><th>Desde</th><th>Hasta</th><th>Motivo</th><th></th></tr></thead>
+        <tbody>
+          {% for closure in closures %}
+            <tr>
+              <td>{{ closure.starts_at|datetime }}</td>
+              <td>{{ closure.ends_at|datetime }}</td>
+              <td>{{ closure.reason or "—" }}</td>
+              <td class="table__actions">
+                <form method="post" action="/admin/agendas/{{ agenda.id }}/closures/{{ closure.id }}/delete">
+                  <button type="submit" class="btn btn--sm btn--danger">Borrar</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">Sin cortes cargados.</p>
+    {% endif %}
+
+    <form method="post" action="/admin/agendas/{{ agenda.id }}/closures" class="subform">
+      <div class="field">
+        <label for="closure_start">Desde</label>
+        <input type="datetime-local" id="closure_start" name="starts_at" required />
+      </div>
+      <div class="field">
+        <label for="closure_end">Hasta</label>
+        <input type="datetime-local" id="closure_end" name="ends_at" required />
+      </div>
+      <div class="field">
+        <label for="reason">Motivo</label>
+        <input type="text" id="reason" name="reason" placeholder="Mantenimiento de tanque" />
+      </div>
+      <button type="submit" class="btn">Agregar corte</button>
+    </form>
+  </section>
+{% endblock %}

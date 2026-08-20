@@ -1,0 +1,13 @@
+# Normaliza los finales de línea: en el repositorio siempre LF, en tu Windows
+# lo que corresponda. Render corre Linux, así que esto evita sorpresas.
+* text=auto eol=lf
+
+# El .bat tiene que quedar con CRLF: con LF, cmd.exe puede romper los goto
+# y mostrar caracteres raros.
+*.bat text eol=crlf
+
+# Binarios: que Git no los toque
+*.png binary
+*.jpg binary
+*.ico binary
+*.db binary
