@@ -6,6 +6,7 @@
     <h1>Mi perfil</h1>
 
     {% if saved %}<p class="alert alert--ok">Datos guardados.</p>{% endif %}
+    {% if error %}<p class="alert alert--error">{{ error }}</p>{% endif %}
 
     <div class="profile">
       {% if user.picture %}
@@ -25,15 +26,15 @@
       </div>
 
       <div class="field">
-        <label for="phone">Teléfono de contacto</label>
-        <input type="tel" id="phone" name="phone" value="{{ user.phone }}" maxlength="40"
+        <label for="phone">Teléfono de contacto *</label>
+        <input type="tel" id="phone" name="phone" value="{{ user.phone }}" maxlength="40" required
                placeholder="+54 9 11 0000-0000" />
         <p class="hint">Lo usa la aeroplanta si necesita avisarte algo del turno.</p>
       </div>
 
       <div class="field">
-        <label for="company">Empresa / operador</label>
-        <input type="text" id="company" name="company" value="{{ user.company }}" maxlength="160" />
+        <label for="company">Empresa / operador *</label>
+        <input type="text" id="company" name="company" value="{{ user.company }}" maxlength="160" required />
       </div>
 
       <button type="submit" class="btn btn--accent">Guardar cambios</button>

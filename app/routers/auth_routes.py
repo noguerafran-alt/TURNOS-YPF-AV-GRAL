@@ -113,23 +113,41 @@ def logout(request: Request):
 
 
 @router.get("/perfil")
-def profile_page(request: Request, user: User | None = Depends(get_current_user), saved: bool = False):
+def profile_page(
+    request: Request,
+    user: User | None = Depends(get_current_user),
+    saved: bool = False,
+    error: str | None = None,
+):
     if user is None:
         return RedirectResponse("/auth/login?next=/perfil", status_code=303)
-    return templates.TemplateResponse(request, "perfil.html", {"user": user, "saved": saved})
+    return templates.TemplateResponse(
+        request, "perfil.html", {"user": user, "saved": saved, "error": error}
+    )
 
 
 @router.post("/perfil")
 def profile_save(
     request: Request,
-    phone: str = Form(""),
-    company: str = Form(""),
+    phone: str = Form(...),
+    company: str = Form(...),
     name: str = Form(""),
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    user.phone = phone.strip()[:40]
-    user.company = company.strip()[:160]
+    # Teléfono y empresa son obligatorios: son los datos que la aeroplanta
+    # necesita para contactar a quien reserva. min_length en el form no alcanza
+    # solo (dejaría pasar "   "), así que se valida el string ya recortado.
+    phone = phone.strip()
+    company = company.strip()
+    if not phone or not company:
+        return RedirectResponse(
+            "/perfil?error=Completá+tu+teléfono+y+tu+empresa+antes+de+guardar",
+            status_code=303,
+        )
+
+    user.phone = phone[:40]
+    user.company = company[:160]
     if name.strip():
         user.name = name.strip()[:160]
     db.commit()
