@@ -1,6 +1,6 @@
 """Rutas de login / logout / perfil."""
 
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
@@ -118,11 +118,17 @@ def profile_page(
     user: User | None = Depends(get_current_user),
     saved: bool = False,
     error: str | None = None,
+    next: str | None = None,
 ):
     if user is None:
-        return RedirectResponse("/auth/login?next=/perfil", status_code=303)
+        # Se preserva next para no perder el destino (ej: la agenda donde
+        # querían reservar) mientras el usuario hace el login. Va con urlencode:
+        # es un next anidado dentro de otro next, y sin encodear el "?" y "="
+        # internos rompen el parseo de la query string externa.
+        login_next = "/perfil" + (f"?{urlencode({'next': next})}" if next else "")
+        return RedirectResponse(f"/auth/login?{urlencode({'next': login_next})}", status_code=303)
     return templates.TemplateResponse(
-        request, "perfil.html", {"user": user, "saved": saved, "error": error}
+        request, "perfil.html", {"user": user, "saved": saved, "error": error, "next": next}
     )
 
 
@@ -132,6 +138,7 @@ def profile_save(
     phone: str = Form(...),
     company: str = Form(...),
     name: str = Form(""),
+    next: str = Form(""),
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
@@ -141,14 +148,19 @@ def profile_save(
     phone = phone.strip()
     company = company.strip()
     if not phone or not company:
-        return RedirectResponse(
-            "/perfil?error=Completá+tu+teléfono+y+tu+empresa+antes+de+guardar",
-            status_code=303,
-        )
+        params = {"error": "Completá tu teléfono y tu empresa antes de guardar"}
+        if next:
+            params["next"] = next
+        return RedirectResponse(f"/perfil?{urlencode(params)}", status_code=303)
 
     user.phone = phone[:40]
     user.company = company[:160]
     if name.strip():
         user.name = name.strip()[:160]
     db.commit()
+
+    # Si vino de "necesito completar mi perfil para reservar", lo mandamos
+    # directo de vuelta a esa agenda en vez de dejarlo varado en /perfil.
+    if next:
+        return RedirectResponse(_safe_next(next), status_code=303)
     return RedirectResponse("/perfil?saved=1", status_code=303)

@@ -89,6 +89,16 @@ def create_booking(
     db: Session = Depends(get_db),
     user: User = Depends(require_user),
 ):
+    # Gate de perfil completo. La UI ya evita llegar hasta acá sin teléfono y
+    # empresa (redirige a /perfil antes de abrir el diálogo), pero esto es lo
+    # que realmente lo garantiza: nada impide pegarle a la API directo.
+    # 403, no 409: es un problema de permiso/estado de la cuenta, no del turno.
+    if not user.phone.strip() or not user.company.strip():
+        raise HTTPException(
+            status_code=403,
+            detail="Completá tu perfil (teléfono y empresa) antes de reservar un turno.",
+        )
+
     agenda = db.scalar(select(Agenda).where(Agenda.slug == payload.slug))
     if agenda is None or not agenda.is_active:
         raise HTTPException(status_code=404, detail="Esa agenda no está disponible.")

@@ -38,6 +38,10 @@
         window.location.href = window.LOGIN_URL;
         return;
       }
+      if (!window.PROFILE_COMPLETE) {
+        window.location.href = window.PROFILE_URL;
+        return;
+      }
 
       selectedSlot = button.dataset.slot;
       slotLabel.textContent = button.dataset.label;
@@ -88,6 +92,12 @@
 
         if (response.status === 401) {
           window.location.href = window.LOGIN_URL;
+          return;
+        }
+        if (response.status === 403) {
+          // El cliente ya evita llegar hasta acá con el perfil incompleto,
+          // pero por si esta pestaña quedó abierta desde antes de completarlo.
+          window.location.href = window.PROFILE_URL;
           return;
         }
 

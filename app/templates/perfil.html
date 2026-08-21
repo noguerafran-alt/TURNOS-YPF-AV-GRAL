@@ -7,6 +7,9 @@
 
     {% if saved %}<p class="alert alert--ok">Datos guardados.</p>{% endif %}
     {% if error %}<p class="alert alert--error">{{ error }}</p>{% endif %}
+    {% if next and not error %}
+      <p class="notice">Completá tu perfil para poder reservar turnos.</p>
+    {% endif %}
 
     <div class="profile">
       {% if user.picture %}
@@ -20,6 +23,8 @@
     </div>
 
     <form method="post" action="/perfil">
+      <input type="hidden" name="next" value="{{ next or '' }}" />
+
       <div class="field">
         <label for="name">Nombre y apellido</label>
         <input type="text" id="name" name="name" value="{{ user.name }}" maxlength="160" />

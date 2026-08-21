@@ -214,6 +214,10 @@
     window.AGENDA_SLUG = {{ agenda.slug | tojson }};
     window.IS_LOGGED_IN = {{ (user is not none) | tojson }};
     window.LOGIN_URL = {{ ("/auth/login?next=/a/" ~ agenda.slug) | tojson }};
+    window.PROFILE_COMPLETE = {{
+      (user is not none and (user.phone|trim|length > 0) and (user.company|trim|length > 0)) | tojson
+    }};
+    window.PROFILE_URL = {{ ("/perfil?next=/a/" ~ agenda.slug) | tojson }};
   </script>
   <script src="/static/js/agenda.js" defer></script>
 {% endblock %}
