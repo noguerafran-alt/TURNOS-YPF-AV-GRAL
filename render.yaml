@@ -89,3 +89,7 @@ services:
       # URL pública del servicio: de acá sale el callback de Google
       - key: BASE_URL
         sync: false                # https://turnos-ypf-av-gral.onrender.com
+
+      # --- API externa YPF (READ-ONLY). Completar en el dashboard; no hardcodear. ---
+      - key: YPF_API_KEY
+        sync: false

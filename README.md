@@ -50,7 +50,9 @@ TURNOS-APP/
 │   │   ├── bookings.py    API de reservas (JSON)
 │   │   ├── admin.py       panel: aeroplantas, turnos, exportación
 │   │   ├── users_admin.py gestión de usuarios (nivel 2)
-│   │   └── auth_routes.py login, logout, perfil
+│   │   ├── auth_routes.py login, logout, perfil
+│   │   ├── coord.py       panel coordinador
+│   │   └── external_ypf.py API READ-ONLY YPF (/external/v1)
 │   ├── templates/         HTML
 │   └── static/            CSS y JS
 ├── migrations/            historial de esquema (Alembic)
@@ -82,6 +84,14 @@ TURNOS-APP/
 | `POST /api/bookings/{id}/cancel` | Cancelar turno |
 | `/api/docs` | Documentación automática de la API |
 | `/health` | Chequeo de salud |
+
+
+### API externa YPF (READ-ONLY)
+
+Prefijo `/external/v1`. Autenticación por `YPF_API_KEY` o `EXTERNAL_API_KEY`
+(`X-API-Key` o `Authorization: Bearer`). Detalle de endpoints en
+[`docs/YPF_API.md`](docs/YPF_API.md).
+
 
 ---
 
