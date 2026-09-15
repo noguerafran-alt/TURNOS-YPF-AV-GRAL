@@ -20,7 +20,7 @@ from app.auth import get_current_user  # noqa: F401  (se usa como dependencia en
 from app.config import settings
 from app.migrate import upgrade_database
 from app.reminders import reminder_loop
-from app.routers import admin, auth_routes, bookings, public, users_admin
+from app.routers import admin, auth_routes, bookings, coord, public, users_admin
 from app.templating import templates
 
 # Uvicorn configura sus propios loggers, pero deja el root sin handlers: sin esto,
@@ -85,12 +85,17 @@ app.include_router(auth_routes.router)
 app.include_router(bookings.router)
 app.include_router(admin.router)
 app.include_router(users_admin.router)
+app.include_router(coord.router)
 
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     """Las llamadas a /api responden JSON; el resto, una página de error."""
-    if request.url.path.startswith("/api"):
+    path = request.url.path
+    wants_json = path.startswith("/api") or (
+        path.startswith("/coord/") or path.startswith("/admin/abastecedoras")
+    )
+    if wants_json:
         return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
 
     return templates.TemplateResponse(

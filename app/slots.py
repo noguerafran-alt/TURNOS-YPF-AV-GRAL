@@ -131,7 +131,9 @@ def build_week(
     mine: dict[datetime, int] = {}
     for booking in bookings:
         key = booking.starts_at.astimezone(UTC)
-        taken[key] = taken.get(key, 0) + 1
+        # Los sobreturnos no consumen cupo de la grilla B
+        if not getattr(booking, "sobreturno", False):
+            taken[key] = taken.get(key, 0) + 1
         if user_id is not None and booking.user_id == user_id:
             mine[key] = booking.id
 

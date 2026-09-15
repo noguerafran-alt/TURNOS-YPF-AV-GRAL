@@ -19,7 +19,8 @@ from app.auth import get_current_user, require_user
 from app.config import settings
 from app.database import get_db, is_postgres
 from app.emails import booking_payload, send_cancellation, send_confirmation
-from app.models import Agenda, Booking, BookingStatus, User
+from app.matricula import lookup_matricula
+from app.models import Agenda, Booking, BookingStatus, CoordinacionStatus, OrigenBooking, User
 from app.slots import SlotStatus, find_slot
 
 router = APIRouter(prefix="/api", tags=["reservas"])
@@ -149,17 +150,27 @@ def create_booking(
                 ),
             )
 
+        aircraft = payload.aircraft.strip().upper()[:40]
+        lookup = lookup_matricula(db, aircraft)
+        combustible = lookup.combustible or agenda.product or ""
+
         booking = Booking(
             agenda_id=agenda.id,
             user_id=user.id,
             starts_at=slot.starts_at,
             ends_at=slot.ends_at,
             status=BookingStatus.CONFIRMED,
-            aircraft=payload.aircraft.strip().upper()[:40],
+            aircraft=aircraft,
             aircraft_model=payload.aircraft_model.strip()[:60],
             liters=payload.liters,
             flight_number=payload.flight_number.strip().upper()[:20],
             notes=payload.notes.strip()[:500],
+            origen=OrigenBooking.WEB,
+            coordinacion_status=CoordinacionStatus.PENDIENTE,
+            combustible_declarado=combustible,
+            primera_carga=lookup.primera_carga,
+            unknown_matricula=lookup.unknown_matricula,
+            sobreturno=False,
         )
         db.add(booking)
         db.commit()
@@ -219,6 +230,16 @@ def cancel_booking(
     booking.status = BookingStatus.CANCELLED
     booking.cancelled_at = now
     booking.cancelled_by_admin = by_admin
+    # Mantener pipeline operativo alineado
+    if booking.coordinacion_status not in (
+        CoordinacionStatus.ABASTECIDO,
+        CoordinacionStatus.AUSENTE,
+        CoordinacionStatus.CANCELADO,
+    ):
+        booking.coordinacion_status = CoordinacionStatus.CANCELADO
+        booking.cancelado_coord_at = now
+        if not booking.cancelado_motivo:
+            booking.cancelado_motivo = "Cancelado desde reserva" if not by_admin else "Cancelado por administración"
     db.commit()
 
     # Solo se avisa de turnos futuros: no tiene sentido notificar una limpieza
