@@ -87,6 +87,11 @@ class Settings:
         # `alembic upgrade head` por separado (ej: varias instancias en paralelo).
         self.run_migrations: bool = _as_bool(os.getenv("RUN_MIGRATIONS"), default=True)
 
+        # --- API externa YPF (solo lectura) ---
+        # Acepta cualquiera de las dos; si ninguna está seteada, /external/v1 responde 503.
+        self.ypf_api_key: str = os.getenv("YPF_API_KEY", "")
+        self.external_api_key: str = os.getenv("EXTERNAL_API_KEY", "")
+
     @property
     def tz(self) -> ZoneInfo:
         return ZoneInfo(self.timezone_name)

@@ -84,6 +84,14 @@ def _booking_json(b: Booking) -> dict:
         "operador": op.display_name if op else None,
         "cancelado_motivo": b.cancelado_motivo,
         "ausente_motivo": b.ausente_motivo,
+        "created_at": b.created_at.isoformat() if b.created_at else None,
+        "ends_at": b.ends_at.isoformat() if b.ends_at else None,
+        "asignado_at": b.asignado_at.isoformat() if b.asignado_at else None,
+        "abastecido_at": b.abastecido_at.isoformat() if b.abastecido_at else None,
+        "ausente_at": b.ausente_at.isoformat() if b.ausente_at else None,
+        "cancelado_coord_at": b.cancelado_coord_at.isoformat() if b.cancelado_coord_at else None,
+        "reconfirmado_at": b.reconfirmado_at.isoformat() if b.reconfirmado_at else None,
+        "cancelled_at": b.cancelled_at.isoformat() if b.cancelled_at else None,
     }
 
 
