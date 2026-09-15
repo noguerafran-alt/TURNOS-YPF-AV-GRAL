@@ -1,0 +1,545 @@
+{% extends "base.html" %}
+{% block title %}Coordinación{% endblock %}
+
+{% block head %}
+<style>
+  .coord-wrap { max-width: 1200px; }
+  .coord-filters { display: flex; flex-wrap: wrap; gap: .75rem 1rem; align-items: flex-end; margin-bottom: 1.2rem; }
+  .coord-filters .field { margin: 0; min-width: 140px; }
+  .coord-filters .field--grow { flex: 1; min-width: 160px; }
+  .coord-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: .7rem; margin-bottom: 1.2rem; }
+  .coord-kpi {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: .85rem 1rem; cursor: pointer; text-align: left; font: inherit; color: inherit;
+    box-shadow: var(--shadow-sm); transition: border-color .15s, transform .12s;
+  }
+  .coord-kpi:hover { border-color: var(--navy-600); transform: translateY(-1px); }
+  .coord-kpi.is-active { border-color: var(--navy-800); box-shadow: 0 0 0 2px rgba(4,81,221,.15); }
+  .coord-kpi__num { display: block; font-family: var(--font-head); font-size: 1.55rem; font-weight: 700; color: var(--navy-800); line-height: 1.1; }
+  .coord-kpi__label { font-size: .78rem; color: var(--muted); font-weight: 600; }
+  .coord-kpi--warn .coord-kpi__num { color: var(--warn); }
+  .coord-kpi--danger .coord-kpi__num { color: var(--danger); }
+
+  .chip--pendiente { background: var(--warn-bg); color: var(--warn); }
+  .chip--programado { background: #EEF3FA; color: var(--navy-800); }
+  .chip--abastecido { background: var(--ok-bg); color: var(--ok); }
+  .chip--ausente { background: #EEF1F5; color: var(--muted); border: 1px solid var(--border); }
+  .chip--jet { background: #1C1C1C; color: #fff; }
+  .chip--avgas { background: #C0392B; color: #fff; }
+  .chip--sobreturno { background: var(--accent-soft); color: var(--warn); }
+  .chip--primera { background: var(--danger-bg); color: var(--danger); }
+
+  .coord-row {
+    display: grid; gap: .6rem 1rem; align-items: center;
+    grid-template-columns: 72px minmax(120px, 1.2fr) minmax(100px, 1fr) auto minmax(120px, 1fr) auto;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: .9rem 1rem; margin-bottom: .65rem; box-shadow: var(--shadow-sm);
+  }
+  @media (max-width: 900px) {
+    .coord-row { grid-template-columns: 1fr 1fr; }
+    .coord-row__actions { grid-column: 1 / -1; }
+  }
+  .coord-row__time { font-family: var(--font-head); font-weight: 700; font-size: 1.15rem; color: var(--navy-800); }
+  .coord-row__mat { font-family: ui-monospace, monospace; font-weight: 700; font-size: 1.05rem; }
+  .coord-row__client { color: var(--muted); font-size: .88rem; }
+  .coord-row__assign { font-size: .85rem; }
+  .coord-row__assign.is-missing { color: var(--warn); font-weight: 600; }
+  .coord-row__actions { display: flex; flex-wrap: wrap; gap: .35rem; justify-content: flex-end; }
+  .coord-banner {
+    background: #FDECEA; border: 1px solid #C0392B; color: #7B1E1E;
+    border-radius: var(--radius-sm); padding: .75rem 1rem; margin-bottom: .8rem; font-size: .9rem;
+  }
+  .coord-banner strong { display: block; margin-bottom: .2rem; }
+  .coord-check { display: flex; flex-direction: column; gap: .45rem; margin: .8rem 0; }
+  .coord-check label { display: flex; gap: .5rem; align-items: flex-start; font-size: .9rem; font-weight: 500; }
+  .dialog--wide { width: min(560px, calc(100vw - 2rem)); }
+  .toast {
+    position: fixed; bottom: 1.2rem; right: 1.2rem; z-index: 80;
+    background: var(--navy-800); color: #fff; padding: .75rem 1.1rem;
+    border-radius: var(--radius-pill); box-shadow: var(--shadow-lg); font-size: .9rem;
+    opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  .toast.is-on { opacity: 1; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="coord-wrap" id="coord-app"
+     data-today="{{ today }}"
+     data-operadores='{{ operadores | tojson }}'
+     data-abastecedoras='{{ abastecedoras | tojson }}'>
+  <div class="panel-head">
+    <div>
+      <h1>Coordinación{% if agendas %} · <span id="coord-planta-label">{{ agendas[0].full_name }}</span>{% endif %}</h1>
+      <p class="muted" style="margin:0">Gestión operativa del día — {{ user.role_label }}</p>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+      <a class="btn btn--outline btn--sm" href="/admin">Admin</a>
+      <button type="button" class="btn btn--accent btn--sm" id="btn-manual">+ Turno manual</button>
+    </div>
+  </div>
+
+  <div class="coord-filters panel" style="padding:1rem 1.2rem">
+    <div class="field">
+      <label for="f-date">Fecha</label>
+      <input type="date" id="f-date" value="{{ today }}" />
+    </div>
+    <div class="field field--grow">
+      <label for="f-agenda">Planta / Agenda</label>
+      <select id="f-agenda">
+        <option value="">Todas</option>
+        {% for a in agendas %}
+          <option value="{{ a.id }}" {% if loop.first %}selected{% endif %}>{{ a.full_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="f-status">Estado</label>
+      <select id="f-status">
+        <option value="">Todos</option>
+        <option value="PENDIENTE">PENDIENTE</option>
+        <option value="PROGRAMADO">PROGRAMADO</option>
+        <option value="ABASTECIDO">ABASTECIDO</option>
+        <option value="AUSENTE">AUSENTE</option>
+      </select>
+    </div>
+    <div class="field field--grow">
+      <label for="f-q">Buscar matrícula</label>
+      <input type="search" id="f-q" placeholder="LV-XXX" autocomplete="off" />
+    </div>
+  </div>
+
+  <div class="coord-kpis" id="coord-kpis"></div>
+  <div id="coord-list"></div>
+  <div class="empty" id="coord-empty" hidden>
+    No hay turnos para esta planta en esta fecha.
+    <div style="margin-top:1rem"><button type="button" class="btn btn--accent" id="btn-manual-empty">Crear turno manual</button></div>
+  </div>
+</div>
+
+<dialog class="dialog dialog--wide" id="dlg-asignar">
+  <form method="dialog" class="dialog__close-form"><button class="dialog__close" aria-label="Cerrar">×</button></form>
+  <h2 id="dlg-asignar-title">Asignar</h2>
+  <p class="dialog__slot" id="dlg-asignar-summary"></p>
+  <div class="field">
+    <label for="asig-ab">Abastecedora</label>
+    <select id="asig-ab"></select>
+    <p class="hint" id="asig-ab-hint"></p>
+  </div>
+  <div class="field">
+    <label for="asig-op">Operador</label>
+    <select id="asig-op"></select>
+  </div>
+  <div class="dialog__actions">
+    <button type="button" class="btn btn--outline" id="asig-cancel">Cancelar</button>
+    <button type="button" class="btn btn--accent" id="asig-submit">Asignar y programar</button>
+  </div>
+</dialog>
+
+<dialog class="dialog dialog--wide" id="dlg-detalle">
+  <form method="dialog" class="dialog__close-form"><button class="dialog__close" aria-label="Cerrar">×</button></form>
+  <h2>Detalle del turno</h2>
+  <div id="dlg-detalle-body"></div>
+  <div class="dialog__actions" id="dlg-detalle-actions"></div>
+</dialog>
+
+<dialog class="dialog dialog--wide" id="dlg-manual">
+  <form method="dialog" class="dialog__close-form"><button class="dialog__close" aria-label="Cerrar">×</button></form>
+  <h2>Turno manual</h2>
+  <div class="field">
+    <label for="man-agenda">Planta / Agenda *</label>
+    <select id="man-agenda">
+      {% for a in agendas %}
+        <option value="{{ a.id }}" data-product="{{ a.product }}">{{ a.full_name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="form-row" style="display:flex;gap:1rem;flex-wrap:wrap">
+    <div class="field" style="flex:1"><label for="man-date">Fecha *</label><input type="date" id="man-date" value="{{ today }}" /></div>
+    <div class="field" style="flex:1"><label for="man-time">Hora *</label><input type="time" id="man-time" value="08:00" /></div>
+  </div>
+  <div class="field"><label for="man-aircraft">Matrícula *</label><input type="text" id="man-aircraft" placeholder="LV-XXX" /></div>
+  <div class="field"><label for="man-model">Modelo</label><input type="text" id="man-model" placeholder="Cessna 172" /></div>
+  <div class="field"><label for="man-liters">Litros</label><input type="number" id="man-liters" min="1" max="20000" /></div>
+  <div class="field"><label for="man-fuel">Combustible</label><input type="text" id="man-fuel" placeholder="Se completa según matrícula o agenda" /></div>
+  <div class="field"><label for="man-notes">Notas</label><textarea id="man-notes" rows="2"></textarea></div>
+  <div class="field">
+    <label><input type="checkbox" id="man-sobre" /> Sobreturno (no consume grilla)</label>
+    <p class="hint">El sobreturno no resta capacidad de la grilla ni bloquea equipos ya asignados.</p>
+  </div>
+  <p class="dialog__error" id="man-error" hidden></p>
+  <div class="dialog__actions">
+    <button type="button" class="btn btn--outline" id="man-cancel">Cancelar</button>
+    <button type="button" class="btn btn--accent" id="man-submit">Crear turno</button>
+  </div>
+</dialog>
+
+<dialog class="dialog" id="dlg-motivo">
+  <form method="dialog" class="dialog__close-form"><button class="dialog__close" aria-label="Cerrar">×</button></form>
+  <h2 id="dlg-motivo-title">Motivo</h2>
+  <div class="field">
+    <label for="motivo-text" id="motivo-label">Motivo de cancelación</label>
+    <textarea id="motivo-text" rows="3" required></textarea>
+  </div>
+  <p class="dialog__error" id="motivo-error" hidden></p>
+  <div class="dialog__actions">
+    <button type="button" class="btn btn--outline" id="motivo-cancel">Volver</button>
+    <button type="button" class="btn btn--danger" id="motivo-submit">Confirmar</button>
+  </div>
+</dialog>
+
+<div class="toast" id="coord-toast" role="status"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const app = document.getElementById('coord-app');
+  const operadores = JSON.parse(app.dataset.operadores || '[]');
+  const abastecedorasSeed = JSON.parse(app.dataset.abastecedoras || '[]');
+  let bookings = [];
+  let kpiFilter = '';
+  let currentAsignarId = null;
+  let currentReasignar = false;
+  let motivoMode = null; // {id, kind: 'cancel'|'ausente'}
+  let detalleBooking = null;
+
+  const $ = (id) => document.getElementById(id);
+  const toast = (msg) => {
+    const el = $('coord-toast');
+    el.textContent = msg;
+    el.classList.add('is-on');
+    setTimeout(() => el.classList.remove('is-on'), 2800);
+  };
+
+  async function api(url, opts = {}) {
+    const res = await fetch(url, {
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', ...(opts.headers || {}) },
+      ...opts,
+    });
+    let data = null;
+    try { data = await res.json(); } catch (_) {}
+    if (!res.ok) {
+      const detail = (data && data.detail) || res.statusText;
+      throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+    }
+    return data;
+  }
+
+  function gradoChip(fuel) {
+    const u = (fuel || '').toUpperCase();
+    if (u.includes('JET')) return '<span class="chip chip--jet">JET A-1</span>';
+    if (u.includes('AVGAS') || u.includes('100LL')) return '<span class="chip chip--avgas">AVGAS 100LL</span>';
+    return fuel ? `<span class="chip">${escapeHtml(fuel)}</span>` : '';
+  }
+  function statusChip(st) {
+    const map = { PENDIENTE: 'pendiente', PROGRAMADO: 'programado', ABASTECIDO: 'abastecido', AUSENTE: 'ausente' };
+    return `<span class="chip chip--${map[st] || ''}">${st}</span>`;
+  }
+  function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function renderKpis(k) {
+    const items = [
+      { key: 'PENDIENTE', num: k.pendientes, label: 'Pendientes' },
+      { key: 'PROGRAMADO', num: k.programados, label: 'Programados' },
+      { key: 'ABASTECIDO', num: k.abastecidos, label: 'Abastecidos' },
+      { key: 'AUSENTE', num: k.ausentes, label: 'Ausentes' },
+      { key: 'PRIMERA', num: k.primera_carga, label: 'Primera carga', danger: true },
+    ];
+    $('coord-kpis').innerHTML = items.map(i => `
+      <button type="button" class="coord-kpi ${i.danger ? 'coord-kpi--danger' : ''} ${kpiFilter === i.key ? 'is-active' : ''}" data-kpi="${i.key}">
+        <span class="coord-kpi__num">${i.num}</span>
+        <span class="coord-kpi__label">${i.label}</span>
+      </button>`).join('');
+    $('coord-kpis').querySelectorAll('[data-kpi]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.kpi;
+        if (key === 'PRIMERA') {
+          kpiFilter = kpiFilter === 'PRIMERA' ? '' : 'PRIMERA';
+          $('f-status').value = '';
+          renderList();
+          renderKpis(k);
+          return;
+        }
+        kpiFilter = '';
+        $('f-status').value = $('f-status').value === key ? '' : key;
+        loadBoard();
+      });
+    });
+  }
+
+  function actionsFor(b) {
+    const btns = [];
+    if (b.coordinacion_status === 'PENDIENTE') {
+      btns.push(`<button type="button" class="btn btn--sm btn--accent" data-act="asignar" data-id="${b.id}">Asignar</button>`);
+      btns.push(`<button type="button" class="btn btn--sm btn--danger" data-act="cancelar" data-id="${b.id}">Cancelar</button>`);
+    } else if (b.coordinacion_status === 'PROGRAMADO') {
+      const locked = b.badge_primera_carga && !b.combustible_reconfirmado_en_persona;
+      btns.push(`<button type="button" class="btn btn--sm ${locked ? 'is-disabled' : ''}" data-act="abastecer" data-id="${b.id}" ${locked ? 'disabled title="Primero reconfirmá el combustible en persona."' : ''}>Abastecido</button>`);
+      btns.push(`<button type="button" class="btn btn--sm btn--outline" data-act="ausente" data-id="${b.id}">No se presentó</button>`);
+      btns.push(`<button type="button" class="btn btn--sm btn--outline" data-act="reasignar" data-id="${b.id}">Reasignar</button>`);
+      btns.push(`<button type="button" class="btn btn--sm btn--danger" data-act="cancelar" data-id="${b.id}">Cancelar</button>`);
+    }
+    btns.push(`<button type="button" class="btn btn--sm btn--outline" data-act="detalle" data-id="${b.id}">Ver</button>`);
+    return btns.join('');
+  }
+
+  function renderList() {
+    let rows = bookings.slice();
+    if (kpiFilter === 'PRIMERA') rows = rows.filter(b => b.badge_primera_carga);
+    const list = $('coord-list');
+    const empty = $('coord-empty');
+    if (!rows.length) {
+      list.innerHTML = '';
+      empty.hidden = false;
+      return;
+    }
+    empty.hidden = true;
+    list.innerHTML = rows.map(b => `
+      <article class="coord-row" data-id="${b.id}">
+        <div>
+          <div class="coord-row__time">${escapeHtml(b.hora)}</div>
+          ${b.sobreturno ? '<span class="chip chip--sobreturno">SOBRETURNO</span>' : ''}
+        </div>
+        <div>
+          <div class="coord-row__mat">${escapeHtml(b.aircraft)}</div>
+          ${gradoChip(b.combustible_declarado)}
+        </div>
+        <div class="coord-row__client">${escapeHtml(b.cliente)}${b.empresa ? '<br>'+escapeHtml(b.empresa) : ''}</div>
+        <div>${statusChip(b.coordinacion_status)} ${b.badge_primera_carga ? '<span class="chip chip--primera">NUNCA ANTES CARGADO</span>' : ''}</div>
+        <div class="coord-row__assign ${(!b.abastecedora && b.coordinacion_status==='PENDIENTE') ? 'is-missing' : ''}">
+          ${b.abastecedora ? escapeHtml(b.abastecedora) + (b.operador ? ' · ' + escapeHtml(b.operador) : '') : 'Sin asignar'}
+        </div>
+        <div class="coord-row__actions">${actionsFor(b)}</div>
+      </article>`).join('');
+
+    list.querySelectorAll('[data-act]').forEach(btn => {
+      btn.addEventListener('click', () => handleAction(btn.dataset.act, +btn.dataset.id));
+    });
+  }
+
+  async function loadBoard() {
+    const params = new URLSearchParams();
+    const d = $('f-date').value; if (d) params.set('date', d);
+    const a = $('f-agenda').value; if (a) params.set('agenda_id', a);
+    const s = $('f-status').value; if (s) params.set('status', s);
+    const q = $('f-q').value.trim(); if (q) params.set('q', q);
+    const data = await api('/coord/board?' + params.toString());
+    bookings = data.bookings || [];
+    renderKpis(data.kpis || {});
+    renderList();
+    const sel = $('f-agenda');
+    const opt = sel.options[sel.selectedIndex];
+    $('coord-planta-label').textContent = opt && opt.value ? opt.textContent : 'Todas';
+  }
+
+  function openAsignar(id, reasignar) {
+    currentAsignarId = id;
+    currentReasignar = !!reasignar;
+    const b = bookings.find(x => x.id === id);
+    if (!b) return;
+    $('dlg-asignar-title').textContent = reasignar ? 'Reasignar' : 'Asignar';
+    $('dlg-asignar-summary').textContent =
+      `${b.fecha} · ${b.hora} · ${b.aircraft} · ${b.combustible_declarado || '—'} · ${b.liters ? b.liters + ' L' : ''} · ${b.agenda_name}`;
+    const day = $('f-date').value;
+    const abs = abastecedorasSeed.filter(a => !a.agenda_id || a.agenda_id === b.agenda_id);
+    const fuel = (b.combustible_declarado || '').toUpperCase();
+    $('asig-ab').innerHTML = abs.map(a => {
+      const g = (a.grado || '').toUpperCase();
+      const same = (fuel.includes('JET') && g.includes('JET')) ||
+                   ((fuel.includes('AVGAS') || fuel.includes('100LL')) && (g.includes('AVGAS') || g.includes('100LL'))) ||
+                   (!fuel);
+      const taller = a.fuera_de_servicio_hasta && a.fuera_de_servicio_hasta >= day;
+      const disabled = !same || taller;
+      const hint = !same ? ' (Grado distinto)' : (taller ? ' (en taller hoy)' : '');
+      return `<option value="${a.id}" ${disabled ? 'disabled' : ''} ${same && !taller ? 'selected' : ''}>${escapeHtml(a.nombre)} — ${escapeHtml(a.grado)}${hint}</option>`;
+    }).join('');
+    $('asig-ab-hint').textContent = 'Solo equipos del mismo grado que el turno.';
+    $('asig-op').innerHTML = operadores.map(o =>
+      `<option value="${o.id}">${escapeHtml(o.name)}</option>`).join('');
+    $('dlg-asignar').showModal();
+  }
+
+  async function submitAsignar() {
+    const ab = +$('asig-ab').value;
+    const op = +$('asig-op').value;
+    if (!ab || !op) { toast('Elegí abastecedora y operador.'); return; }
+    const path = currentReasignar
+      ? `/coord/bookings/${currentAsignarId}/reasignar`
+      : `/coord/bookings/${currentAsignarId}/asignar`;
+    try {
+      const data = await api(path, { method: 'POST', body: JSON.stringify({ abastecedora_id: ab, operador_user_id: op }) });
+      $('dlg-asignar').close();
+      toast(data.message || 'Listo');
+      await loadBoard();
+    } catch (e) { toast(e.message); }
+  }
+
+  function openDetalle(id) {
+    const b = bookings.find(x => x.id === id);
+    if (!b) return;
+    detalleBooking = b;
+    const needs = b.badge_primera_carga;
+    let html = `
+      <p><strong>${escapeHtml(b.aircraft)}</strong> ${gradoChip(b.combustible_declarado)}
+        <span class="chip">${escapeHtml(b.origen)}</span>
+        ${b.sobreturno ? '<span class="chip chip--sobreturno">SOBRETURNO</span>' : ''}
+        ${statusChip(b.coordinacion_status)}
+      </p>
+      <p class="muted">${escapeHtml(b.cliente)} · ${escapeHtml(b.agenda_name)} · ${escapeHtml(b.fecha)} ${escapeHtml(b.hora)}
+        ${b.liters ? ' · ' + b.liters + ' L' : ''}</p>
+      <p>Combustible declarado: <strong>${escapeHtml(b.combustible_declarado || '—')}</strong>
+        ${!needs ? '<span class="muted"> · Conocida</span>' : ''}</p>
+      <p>Asignación: ${b.abastecedora ? escapeHtml(b.abastecedora) + ' · ' + escapeHtml(b.operador || '') : '<span style="color:var(--warn)">Sin asignar</span>'}</p>
+    `;
+    if (needs && b.coordinacion_status === 'PROGRAMADO') {
+      html += `
+        <div class="coord-banner">
+          <strong>⚠ NUNCA ANTES CARGADO</strong>
+          Reconfirmá el combustible EN PERSONA con el piloto / solicitante antes de marcar Abastecido.
+        </div>
+        <div class="coord-check">
+          <label><input type="checkbox" id="ck1" ${b.reconfirm_pregunte_en_persona ? 'checked' : ''}/> Pregunté en persona qué combustible precisa</label>
+          <label><input type="checkbox" id="ck2" ${b.reconfirm_coincide_declarado ? 'checked' : ''}/> Coincide con el declarado en el turno: ${escapeHtml(b.combustible_declarado || '—')}</label>
+          <label><input type="checkbox" id="ck3" ${b.combustible_reconfirmado_en_persona ? 'checked' : ''}/> Combustible reconfirmado en persona</label>
+        </div>
+        <button type="button" class="btn btn--sm btn--outline" id="btn-save-reconfirm">Guardar reconfirmación</button>
+      `;
+    }
+    $('dlg-detalle-body').innerHTML = html;
+    $('dlg-detalle-actions').innerHTML = actionsFor(b);
+    $('dlg-detalle-actions').querySelectorAll('[data-act]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $('dlg-detalle').close();
+        handleAction(btn.dataset.act, +btn.dataset.id);
+      });
+    });
+    const saveBtn = $('btn-save-reconfirm');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', async () => {
+        try {
+          await api(`/coord/bookings/${b.id}/reconfirmar`, {
+            method: 'POST',
+            body: JSON.stringify({
+              reconfirm_pregunte_en_persona: $('ck1').checked,
+              reconfirm_coincide_declarado: $('ck2').checked,
+              combustible_reconfirmado_en_persona: $('ck3').checked,
+            }),
+          });
+          toast('Reconfirmación guardada');
+          $('dlg-detalle').close();
+          await loadBoard();
+        } catch (e) { toast(e.message); }
+      });
+    }
+    $('dlg-detalle').showModal();
+  }
+
+  function openMotivo(id, kind) {
+    motivoMode = { id, kind };
+    $('dlg-motivo-title').textContent = kind === 'cancel' ? 'Cancelar reserva' : 'No se presentó';
+    $('motivo-label').textContent = kind === 'cancel' ? 'Motivo de cancelación' : 'Motivo (opcional)';
+    $('motivo-text').value = '';
+    $('motivo-error').hidden = true;
+    $('dlg-motivo').showModal();
+  }
+
+  async function submitMotivo() {
+    const motivo = $('motivo-text').value.trim();
+    if (motivoMode.kind === 'cancel' && !motivo) {
+      $('motivo-error').hidden = false;
+      $('motivo-error').textContent = 'El motivo es obligatorio.';
+      return;
+    }
+    try {
+      if (motivoMode.kind === 'cancel') {
+        await api(`/coord/bookings/${motivoMode.id}/cancelar`, { method: 'POST', body: JSON.stringify({ motivo }) });
+        toast('Reserva cancelada');
+      } else {
+        await api(`/coord/bookings/${motivoMode.id}/ausente`, { method: 'POST', body: JSON.stringify({ motivo }) });
+        toast('Marcado como no se presentó');
+      }
+      $('dlg-motivo').close();
+      await loadBoard();
+    } catch (e) {
+      $('motivo-error').hidden = false;
+      $('motivo-error').textContent = e.message;
+    }
+  }
+
+  async function handleAction(act, id) {
+    if (act === 'asignar') return openAsignar(id, false);
+    if (act === 'reasignar') return openAsignar(id, true);
+    if (act === 'detalle') return openDetalle(id);
+    if (act === 'cancelar') return openMotivo(id, 'cancel');
+    if (act === 'ausente') return openMotivo(id, 'ausente');
+    if (act === 'abastecer') {
+      try {
+        const data = await api(`/coord/bookings/${id}/abastecer`, { method: 'POST', body: '{}' });
+        toast(data.message || 'Abastecido');
+        await loadBoard();
+      } catch (e) { toast(e.message); }
+    }
+  }
+
+  function openManual() {
+    $('man-error').hidden = true;
+    const agendaSel = $('f-agenda').value;
+    if (agendaSel) $('man-agenda').value = agendaSel;
+    $('man-date').value = $('f-date').value || app.dataset.today;
+    $('dlg-manual').showModal();
+  }
+
+  async function submitManual() {
+    const agendaId = +$('man-agenda').value;
+    const d = $('man-date').value;
+    const t = $('man-time').value;
+    if (!agendaId || !d || !t || !$('man-aircraft').value.trim()) {
+      $('man-error').hidden = false;
+      $('man-error').textContent = 'Completá agenda, fecha, hora y matrícula.';
+      return;
+    }
+    const starts_at = `${d}T${t}:00`;
+    try {
+      const data = await api('/coord/bookings/manual', {
+        method: 'POST',
+        body: JSON.stringify({
+          agenda_id: agendaId,
+          starts_at,
+          aircraft: $('man-aircraft').value.trim(),
+          aircraft_model: $('man-model').value.trim(),
+          liters: $('man-liters').value ? +$('man-liters').value : null,
+          notes: $('man-notes').value.trim(),
+          combustible: $('man-fuel').value.trim() || null,
+          sobreturno: $('man-sobre').checked,
+        }),
+      });
+      $('dlg-manual').close();
+      toast(data.message || 'Turno creado');
+      await loadBoard();
+    } catch (e) {
+      $('man-error').hidden = false;
+      $('man-error').textContent = e.message;
+    }
+  }
+
+  $('f-date').addEventListener('change', loadBoard);
+  $('f-agenda').addEventListener('change', loadBoard);
+  $('f-status').addEventListener('change', () => { kpiFilter = ''; loadBoard(); });
+  let qTimer;
+  $('f-q').addEventListener('input', () => { clearTimeout(qTimer); qTimer = setTimeout(loadBoard, 250); });
+  $('btn-manual').addEventListener('click', openManual);
+  $('btn-manual-empty').addEventListener('click', openManual);
+  $('asig-cancel').addEventListener('click', () => $('dlg-asignar').close());
+  $('asig-submit').addEventListener('click', submitAsignar);
+  $('man-cancel').addEventListener('click', () => $('dlg-manual').close());
+  $('man-submit').addEventListener('click', submitManual);
+  $('motivo-cancel').addEventListener('click', () => $('dlg-motivo').close());
+  $('motivo-submit').addEventListener('click', submitMotivo);
+
+  loadBoard().catch(e => toast(e.message));
+})();
+</script>
+{% endblock %}

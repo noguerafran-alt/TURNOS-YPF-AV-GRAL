@@ -1,4 +1,4 @@
-﻿"""Modelo de datos.
+"""Modelo de datos.
 
 Esquema del MVP (una empresa, varias agendas):
 
@@ -12,11 +12,12 @@ partir de las ScheduleRule menos los Closure menos los Booking existentes. Eso e
 tener que pre-generar millones de filas de slots vacíos.
 """
 
-from datetime import UTC, datetime, time
+from datetime import UTC, date, datetime, time
 from enum import StrEnum
 
 from sqlalchemy import (
     Boolean,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -106,7 +107,9 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
     last_login_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
 
-    bookings: Mapped[list["Booking"]] = relationship(back_populates="user")
+    bookings: Mapped[list["Booking"]] = relationship(
+        back_populates="user", foreign_keys="Booking.user_id"
+    )
 
     @property
     def display_name(self) -> str:
@@ -215,6 +218,59 @@ class Closure(Base):
     agenda: Mapped["Agenda"] = relationship(back_populates="closures")
 
 
+
+class CoordinacionStatus(StrEnum):
+    """Pipeline operativo del panel coordinador (independiente de BookingStatus)."""
+
+    PENDIENTE = "PENDIENTE"
+    PROGRAMADO = "PROGRAMADO"
+    ABASTECIDO = "ABASTECIDO"
+    AUSENTE = "AUSENTE"
+    CANCELADO = "CANCELADO"
+
+
+class OrigenBooking(StrEnum):
+    WEB = "WEB"
+    MANUAL = "MANUAL"
+
+
+class Abastecedora(Base):
+    """Equipo de abastecimiento (surtidor / cisterna) con grado fijo."""
+
+    __tablename__ = "abastecedoras"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(80))
+    codigo: Mapped[str | None] = mapped_column(String(40), unique=True, nullable=True)
+    grado: Mapped[str] = mapped_column(String(40))  # JET A-1 / AVGAS 100LL
+    agenda_id: Mapped[int | None] = mapped_column(
+        ForeignKey("agendas.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    # "en taller hoy": listar disabled para hoy, OK dias futuros
+    fuera_de_servicio_hasta: Mapped[date | None] = mapped_column(Date, nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    agenda: Mapped["Agenda | None"] = relationship()
+    bookings: Mapped[list["Booking"]] = relationship(back_populates="abastecedora")
+
+
+class MatriculaCombustible(Base):
+    """Listado matricula -> combustible conocido. Stub vacio OK hasta CSV."""
+
+    __tablename__ = "matriculas_combustible"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # Clave normalizada: upper, sin espacios ni guiones
+    matricula: Mapped[str] = mapped_column(String(40), unique=True, index=True)
+    matricula_display: Mapped[str] = mapped_column(String(40), default="")
+    combustible: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
 class Booking(Base):
     """Un turno reservado por un cliente."""
 
@@ -245,8 +301,42 @@ class Booking(Base):
     # aviso dos veces si se ejecuta más de una vez dentro de la misma ventana.
     reminder_sent_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
 
+    # --- Panel coordinador ---
+    coordinacion_status: Mapped[str] = mapped_column(
+        String(20), default=CoordinacionStatus.PENDIENTE, index=True
+    )
+    origen: Mapped[str] = mapped_column(String(20), default=OrigenBooking.WEB)
+    sobreturno: Mapped[bool] = mapped_column(Boolean, default=False)
+    abastecedora_id: Mapped[int | None] = mapped_column(
+        ForeignKey("abastecedoras.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    operador_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    combustible_declarado: Mapped[str] = mapped_column(String(80), default="")
+    primera_carga: Mapped[bool] = mapped_column(Boolean, default=False)
+    unknown_matricula: Mapped[bool] = mapped_column(Boolean, default=False)
+    combustible_reconfirmado_en_persona: Mapped[bool] = mapped_column(Boolean, default=False)
+    reconfirm_pregunte_en_persona: Mapped[bool] = mapped_column(Boolean, default=False)
+    reconfirm_coincide_declarado: Mapped[bool] = mapped_column(Boolean, default=False)
+    reconfirmado_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    reconfirmado_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    abastecido_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    ausente_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    ausente_motivo: Mapped[str] = mapped_column(String(300), default="")
+    cancelado_coord_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    cancelado_motivo: Mapped[str] = mapped_column(String(300), default="")
+    asignado_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    asignado_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
     agenda: Mapped["Agenda"] = relationship(back_populates="bookings")
-    user: Mapped["User"] = relationship(back_populates="bookings")
+    user: Mapped["User"] = relationship(back_populates="bookings", foreign_keys=[user_id])
+    abastecedora: Mapped["Abastecedora | None"] = relationship(back_populates="bookings")
+    operador: Mapped["User | None"] = relationship(foreign_keys=[operador_user_id])
 
     __table_args__ = (
         # Acelera el conteo de ocupación por agenda y semana

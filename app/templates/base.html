@@ -28,7 +28,7 @@
         {% if user %}
           <a href="/mis-turnos">Mis turnos</a>
           <a href="/perfil">Mi perfil</a>
-          {% if user.is_admin %}<a class="topbar__admin" href="/admin">Panel</a>{% endif %}
+          {% if user.is_admin %}<a class="topbar__admin" href="/coord">Coordinación</a><a class="topbar__admin" href="/admin">Panel</a>{% endif %}
           {% if user.can_manage_users %}<a class="topbar__admin" href="/admin/usuarios">Usuarios</a>{% endif %}
           <form action="/auth/logout" method="post" class="topbar__logout">
             <button type="submit" class="linklike">Salir</button>
