@@ -711,3 +711,100 @@ def patch_abastecedora(
     row.sort_order = body.sort_order
     db.commit()
     return {"ok": True}
+
+
+# ============================================================
+# Agenda calendario (mes + listas del día)
+# ============================================================
+@router.get("/coord/agenda")
+def agenda_calendar_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    agendas = db.scalars(
+        select(Agenda).where(Agenda.is_active.is_(True)).order_by(Agenda.sort_order, Agenda.name)
+    ).all()
+    operadores = db.scalars(
+        select(Operador).where(Operador.activo.is_(True)).order_by(Operador.nombre)
+    ).all()
+    abastecedoras = db.scalars(
+        select(Abastecedora).where(Abastecedora.activo.is_(True)).order_by(
+            Abastecedora.sort_order, Abastecedora.nombre
+        )
+    ).all()
+    today = datetime.now(settings.tz).date()
+    return templates.TemplateResponse(
+        request,
+        "coord/agenda_cal.html",
+        {
+            "user": admin,
+            "agendas": agendas,
+            "operadores": [{"id": o.id, "name": o.nombre, "user_id": o.user_id} for o in operadores],
+            "abastecedoras": [
+                {
+                    "id": a.id,
+                    "nombre": a.nombre,
+                    "codigo": a.codigo,
+                    "grado": a.grado,
+                    "capacidad_l": a.capacidad_l,
+                    "agenda_id": a.agenda_id,
+                    "fuera_de_servicio_hasta": a.fuera_de_servicio_hasta.isoformat()
+                    if a.fuera_de_servicio_hasta
+                    else None,
+                }
+                for a in abastecedoras
+            ],
+            "today": today.isoformat(),
+        },
+    )
+
+
+@router.get("/coord/agenda/month")
+def agenda_month_counts(
+    year: int = Query(..., ge=2000, le=2100),
+    month: int = Query(..., ge=1, le=12),
+    agenda_id: int | None = None,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Conteos por día: asignados=PROGRAMADO, sin_asignar=PENDIENTE."""
+    _ = admin
+    first = date(year, month, 1)
+    if month == 12:
+        nxt = date(year + 1, 1, 1)
+    else:
+        nxt = date(year, month + 1, 1)
+    day_from, _ = _day_bounds_utc(first)
+    _, day_to = _day_bounds_utc(nxt - timedelta(days=1))
+    # end of last day
+    day_to = _day_bounds_utc(nxt - timedelta(days=1))[1]
+
+    stmt = select(Booking).where(
+        Booking.status == BookingStatus.CONFIRMED,
+        Booking.coordinacion_status.in_(
+            (CoordinacionStatus.PENDIENTE, CoordinacionStatus.PROGRAMADO)
+        ),
+        Booking.starts_at >= day_from,
+        Booking.starts_at < day_to,
+    )
+    if agenda_id:
+        stmt = stmt.where(Booking.agenda_id == agenda_id)
+
+    counts: dict[str, dict[str, int]] = {}
+    for b in db.scalars(stmt).all():
+        local_day = b.starts_at.astimezone(settings.tz).date().isoformat()
+        bucket = counts.setdefault(local_day, {"asignados": 0, "sin_asignar": 0, "total": 0})
+        if b.coordinacion_status == CoordinacionStatus.PROGRAMADO:
+            bucket["asignados"] += 1
+        else:
+            bucket["sin_asignar"] += 1
+        bucket["total"] += 1
+
+    return {
+        "ok": True,
+        "year": year,
+        "month": month,
+        "agenda_id": agenda_id,
+        "days": counts,
+    }

@@ -269,6 +269,25 @@ class Abastecedora(Base):
 
 
 
+
+class Hangar(Base):
+    """Hangar / posición de estacionamiento por planta (opcional)."""
+
+    __tablename__ = "hangares"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(40), unique=True, index=True)
+    nombre: Mapped[str] = mapped_column(String(160))
+    agenda_id: Mapped[int | None] = mapped_column(
+        ForeignKey("agendas.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    capacidad: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    agenda: Mapped["Agenda | None"] = relationship()
+    aeronaves: Mapped[list["MatriculaCombustible"]] = relationship(back_populates="hangar")
+
+
 class Operador(Base):
     """Maestro de operadores asignables (Turnera). No es cuenta de login.
 
@@ -301,10 +320,19 @@ class MatriculaCombustible(Base):
     matricula_display: Mapped[str] = mapped_column(String(40), default="")
     combustible: Mapped[str | None] = mapped_column(String(80), nullable=True)
     modelo: Mapped[str] = mapped_column(String(80), default="")
+    tipo: Mapped[str] = mapped_column(String(60), default="")
+    motor: Mapped[str] = mapped_column(String(60), default="")
+    cliente: Mapped[str] = mapped_column(String(200), default="")
+    hangar_id: Mapped[int | None] = mapped_column(
+        ForeignKey("hangares.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    capacidad_l: Mapped[int | None] = mapped_column(Integer, nullable=True)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
     updated_at: Mapped[datetime] = mapped_column(
         UTCDateTime, server_default=func.now(), onupdate=func.now()
     )
+
+    hangar: Mapped["Hangar | None"] = relationship(back_populates="aeronaves")
 
 
 class Booking(Base):
