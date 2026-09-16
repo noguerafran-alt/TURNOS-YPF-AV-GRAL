@@ -66,7 +66,7 @@ Misma idea que el panel coordinador (compatibilidad de grado, fuera de servicio)
 
 ### `GET /external/v1/operadores`
 
-Usuarios nivel1 / nivel2 no bloqueados: `id`, `name`, `email`, `role`.
+Maestro `operadores` activos: `id`, `name`, `user_id` (nullable), `activo`.
 Sin secretos ni tokens.
 
 ### `GET /external/v1/board`

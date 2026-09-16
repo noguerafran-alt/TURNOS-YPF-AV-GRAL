@@ -370,7 +370,7 @@
       ? `/coord/bookings/${currentAsignarId}/reasignar`
       : `/coord/bookings/${currentAsignarId}/asignar`;
     try {
-      const data = await api(path, { method: 'POST', body: JSON.stringify({ abastecedora_id: ab, operador_user_id: op }) });
+      const data = await api(path, { method: 'POST', body: JSON.stringify({ abastecedora_id: ab, operador_id: op }) });
       $('dlg-asignar').close();
       toast(data.message || 'Listo');
       await loadBoard();

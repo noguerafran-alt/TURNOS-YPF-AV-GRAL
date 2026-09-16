@@ -24,8 +24,7 @@ from app.models import (
     Booking,
     BookingStatus,
     CoordinacionStatus,
-    Role,
-    User,
+    Operador,
 )
 from app.routers.coord import (
     ACTIVE_COORD,
@@ -231,6 +230,7 @@ def list_abastecedoras(
                 "nombre": a.nombre,
                 "codigo": a.codigo,
                 "grado": a.grado,
+                "capacidad_l": a.capacidad_l,
                 "agenda_id": a.agenda_id,
                 "grado_ok": grado_ok,
                 "en_taller_hoy": bool(
@@ -254,25 +254,20 @@ def list_operadores(
     db: Session = Depends(get_db),
     _: None = Depends(require_external_api_key),
 ):
-    """Operadores de planta: rol operador (+ nivel1/nivel2 activos). Sin secretos."""
+    """Maestro de operadores asignables (Turnera). Sin secretos."""
     rows = db.scalars(
-        select(User)
-        .where(
-            User.role.in_([Role.OPERADOR, Role.NIVEL_1, Role.NIVEL_2]),
-            User.is_blocked.is_(False),
-        )
-        .order_by(User.name, User.email)
+        select(Operador).where(Operador.activo.is_(True)).order_by(Operador.nombre)
     ).all()
     return {
         "ok": True,
         "operadores": [
             {
-                "id": u.id,
-                "name": u.display_name,
-                "email": u.email,
-                "role": u.role,
+                "id": o.id,
+                "name": o.nombre,
+                "user_id": o.user_id,
+                "activo": o.activo,
             }
-            for u in rows
+            for o in rows
         ],
     }
 

@@ -107,6 +107,14 @@ Detalle en [`docs/MAESTRO_MATRICULAS.md`](docs/MAESTRO_MATRICULAS.md).
 python -m scripts.import_maestro_matriculas
 ```
 
+### Maestro abastecedoras + operadores (Turnera)
+
+CSVs en `data/abastecedoras.csv` y `data/operadores.csv`. Detalle en
+[`docs/MAESTRO_FLOTA_OPERADORES.md`](docs/MAESTRO_FLOTA_OPERADORES.md).
+
+```bash
+python -m scripts.seed_flota_operadores
+```
 
 ---
 

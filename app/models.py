@@ -255,6 +255,7 @@ class Abastecedora(Base):
     nombre: Mapped[str] = mapped_column(String(80))
     codigo: Mapped[str | None] = mapped_column(String(40), unique=True, nullable=True)
     grado: Mapped[str] = mapped_column(String(40))  # JET A-1 / AVGAS 100LL
+    capacidad_l: Mapped[int | None] = mapped_column(Integer, nullable=True)
     agenda_id: Mapped[int | None] = mapped_column(
         ForeignKey("agendas.id", ondelete="SET NULL"), nullable=True, index=True
     )
@@ -265,6 +266,28 @@ class Abastecedora(Base):
 
     agenda: Mapped["Agenda | None"] = relationship()
     bookings: Mapped[list["Booking"]] = relationship(back_populates="abastecedora")
+
+
+
+class Operador(Base):
+    """Maestro de operadores asignables (Turnera). No es cuenta de login.
+
+    user_id opcional enlaza a un User con role=operador cuando exista cuenta Google.
+    """
+
+    __tablename__ = "operadores"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(160))
+    # Clave de upsert: NFKC + casefold + espacios colapsados
+    nombre_norm: Mapped[str] = mapped_column(String(160), unique=True, index=True)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, unique=True
+    )
+
+    user: Mapped["User | None"] = relationship()
+    bookings: Mapped[list["Booking"]] = relationship(back_populates="operador")
 
 
 class MatriculaCombustible(Base):
@@ -323,6 +346,10 @@ class Booking(Base):
     abastecedora_id: Mapped[int | None] = mapped_column(
         ForeignKey("abastecedoras.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    operador_id: Mapped[int | None] = mapped_column(
+        ForeignKey("operadores.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    # Legacy / espejo: user_id del Operador enlazado (panel /operador y migraciones)
     operador_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
@@ -349,7 +376,10 @@ class Booking(Base):
     agenda: Mapped["Agenda"] = relationship(back_populates="bookings")
     user: Mapped["User"] = relationship(back_populates="bookings", foreign_keys=[user_id])
     abastecedora: Mapped["Abastecedora | None"] = relationship(back_populates="bookings")
-    operador: Mapped["User | None"] = relationship(foreign_keys=[operador_user_id])
+    operador: Mapped["Operador | None"] = relationship(
+        back_populates="bookings", foreign_keys=[operador_id]
+    )
+    operador_user: Mapped["User | None"] = relationship(foreign_keys=[operador_user_id])
 
     __table_args__ = (
         # Acelera el conteo de ocupación por agenda y semana

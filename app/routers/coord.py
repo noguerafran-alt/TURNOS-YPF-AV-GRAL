@@ -24,6 +24,7 @@ from app.models import (
     Booking,
     BookingStatus,
     CoordinacionStatus,
+    Operador,
     OrigenBooking,
     Role,
     User,
@@ -80,8 +81,9 @@ def _booking_json(b: Booking) -> dict:
         "agenda_name": b.agenda.full_name if b.agenda else "",
         "abastecedora_id": b.abastecedora_id,
         "abastecedora": ab.nombre if ab else None,
+        "operador_id": b.operador_id,
         "operador_user_id": b.operador_user_id,
-        "operador": op.display_name if op else None,
+        "operador": op.nombre if op else None,
         "cancelado_motivo": b.cancelado_motivo,
         "ausente_motivo": b.ausente_motivo,
         "created_at": b.created_at.isoformat() if b.created_at else None,
@@ -145,9 +147,9 @@ def coord_panel(
         select(Agenda).where(Agenda.is_active.is_(True)).order_by(Agenda.sort_order, Agenda.name)
     ).all()
     operadores = db.scalars(
-        select(User)
-        .where(User.role.in_([Role.OPERADOR, Role.NIVEL_1, Role.NIVEL_2]), User.is_blocked.is_(False))
-        .order_by(User.name, User.email)
+        select(Operador)
+        .where(Operador.activo.is_(True))
+        .order_by(Operador.nombre)
     ).all()
     abastecedoras = db.scalars(
         select(Abastecedora).where(Abastecedora.activo.is_(True)).order_by(Abastecedora.sort_order, Abastecedora.nombre)
@@ -160,13 +162,20 @@ def coord_panel(
             "user": admin,
             "agendas": agendas,
             "operadores": [
-                {"id": u.id, "name": u.display_name, "email": u.email} for u in operadores
+                {
+                    "id": o.id,
+                    "name": o.nombre,
+                    "user_id": o.user_id,
+                }
+                for o in operadores
             ],
             "abastecedoras": [
                 {
                     "id": a.id,
                     "nombre": a.nombre,
+                    "codigo": a.codigo,
                     "grado": a.grado,
+                    "capacidad_l": a.capacidad_l,
                     "agenda_id": a.agenda_id,
                     "fuera_de_servicio_hasta": a.fuera_de_servicio_hasta.isoformat()
                     if a.fuera_de_servicio_hasta
@@ -289,6 +298,7 @@ def list_abastecedoras(
                 "nombre": a.nombre,
                 "codigo": a.codigo,
                 "grado": a.grado,
+                "capacidad_l": a.capacidad_l,
                 "agenda_id": a.agenda_id,
                 "grado_ok": grado_ok,
                 "en_taller_hoy": en_taller and a.fuera_de_servicio_hasta == ref_day
@@ -311,7 +321,7 @@ def list_abastecedoras(
 # ============================================================
 class AsignarBody(BaseModel):
     abastecedora_id: int
-    operador_user_id: int
+    operador_id: int
 
 
 class ReconfirmarBody(BaseModel):
@@ -378,8 +388,8 @@ def _asignar(db: Session, booking: Booking, body: AsignarBody, admin: User) -> B
     ab = db.get(Abastecedora, body.abastecedora_id)
     if ab is None or not ab.activo:
         raise HTTPException(status_code=404, detail="Abastecedora inexistente.")
-    op = db.get(User, body.operador_user_id)
-    if op is None or op.role not in (Role.OPERADOR, Role.NIVEL_1, Role.NIVEL_2) or op.is_blocked:
+    op = db.get(Operador, body.operador_id)
+    if op is None or not op.activo:
         raise HTTPException(status_code=404, detail="Operador inválido.")
 
     fuel = booking.combustible_declarado or (booking.agenda.product if booking.agenda else "")
@@ -397,7 +407,9 @@ def _asignar(db: Session, booking: Booking, body: AsignarBody, admin: User) -> B
         )
 
     booking.abastecedora_id = ab.id
-    booking.operador_user_id = op.id
+    booking.operador_id = op.id
+    # Espejo legacy: si el maestro tiene User enlazado, copiar para panel /operador
+    booking.operador_user_id = op.user_id
     booking.coordinacion_status = CoordinacionStatus.PROGRAMADO
     booking.asignado_at = datetime.now(UTC)
     booking.asignado_by = admin.id
@@ -417,7 +429,7 @@ def asignar(
     return {
         "ok": True,
         "booking": _booking_json(booking),
-        "message": f"Turno programado · {ab.nombre} · {op.display_name}",
+        "message": f"Turno programado · {ab.nombre} · {op.nombre}",
     }
 
 
@@ -435,7 +447,7 @@ def reasignar(
     return {
         "ok": True,
         "booking": _booking_json(booking),
-        "message": f"Turno reasignado · {ab.nombre} · {op.display_name}",
+        "message": f"Turno reasignado · {ab.nombre} · {op.nombre}",
     }
 
 
@@ -648,6 +660,7 @@ class AbastecedoraBody(BaseModel):
     nombre: str = Field(min_length=1, max_length=80)
     codigo: str | None = None
     grado: str = Field(min_length=1, max_length=40)
+    capacidad_l: int | None = None
     agenda_id: int | None = None
     activo: bool = True
     fuera_de_servicio_hasta: date | None = None
@@ -666,6 +679,7 @@ def create_abastecedora(
         nombre=body.nombre.strip(),
         codigo=(body.codigo or "").strip() or None,
         grado=normalize_grado(body.grado) or body.grado.strip(),
+        capacidad_l=body.capacidad_l,
         agenda_id=body.agenda_id,
         activo=body.activo,
         fuera_de_servicio_hasta=body.fuera_de_servicio_hasta,
@@ -690,6 +704,7 @@ def patch_abastecedora(
     row.nombre = body.nombre.strip()
     row.codigo = (body.codigo or "").strip() or None
     row.grado = normalize_grado(body.grado) or body.grado.strip()
+    row.capacidad_l = body.capacidad_l
     row.agenda_id = body.agenda_id
     row.activo = body.activo
     row.fuera_de_servicio_hasta = body.fuera_de_servicio_hasta
