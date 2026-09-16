@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.auth import require_admin
+from app.auth import require_admin, require_user
 from app.config import settings
 from app.database import get_db
 from app.matricula import (
@@ -125,8 +125,10 @@ def _require_active(booking: Booking) -> None:
 def api_matricula(
     matricula: str,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    user: User = Depends(require_user),
 ):
+    """Lookup matrícula → combustible (solicitante logueado + admin)."""
+    _ = user
     return lookup_matricula(db, matricula).as_dict()
 
 

@@ -259,7 +259,7 @@ class Abastecedora(Base):
 
 
 class MatriculaCombustible(Base):
-    """Listado matricula -> combustible conocido. Stub vacio OK hasta CSV."""
+    """Listado matricula -> combustible conocido (maestro / ABASTECIDO)."""
 
     __tablename__ = "matriculas_combustible"
 
@@ -268,6 +268,7 @@ class MatriculaCombustible(Base):
     matricula: Mapped[str] = mapped_column(String(40), unique=True, index=True)
     matricula_display: Mapped[str] = mapped_column(String(40), default="")
     combustible: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    modelo: Mapped[str] = mapped_column(String(80), default="")
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
     updated_at: Mapped[datetime] = mapped_column(
         UTCDateTime, server_default=func.now(), onupdate=func.now()

@@ -430,3 +430,11 @@ fieldset.field legend { font-family: var(--font-head); font-size: .88rem; font-w
 
 .panel-head { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; justify-content: space-between; }
 .panel-head h1 { margin-bottom: 0; }
+
+.input--readonly {
+  background: #EEF3F9;
+  color: var(--text);
+  cursor: default;
+  border-color: var(--border);
+}
+#primeraCargaWarn p { color: inherit; font-size: .9rem; }

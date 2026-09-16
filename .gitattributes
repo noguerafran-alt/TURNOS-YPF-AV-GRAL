@@ -11,3 +11,5 @@
 *.jpg binary
 *.ico binary
 *.db binary
+
+*.xlsx binary

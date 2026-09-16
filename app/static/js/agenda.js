@@ -11,6 +11,8 @@
   const submitBtn = document.getElementById('bookSubmit');
 
   let selectedSlot = null;
+  let lookupTimer = null;
+  let lookupSeq = 0;
 
   /* ---------- Diálogos genéricos (info / horarios) ---------- */
   document.querySelectorAll('[data-dialog-open]').forEach((trigger) => {
@@ -48,50 +50,122 @@
       hideError();
       bookForm.reset();
       resetAircraftPick();
+      clearFuelUi();
       bookDialog.showModal();
     });
   });
 
-  /* ---------- Prefill desde Mis Aeronaves ---------- */
+  /* ---------- Prefill desde Mis Aeronaves + lookup maestro ---------- */
   const aircraftPick = document.getElementById('aircraft_pick');
   const fuelHint = document.getElementById('aircraftFuelHint');
+  const fuelKnownBlock = document.getElementById('fuelKnownBlock');
+  const combustibleDisplay = document.getElementById('combustible_display');
+  const primeraCargaWarn = document.getElementById('primeraCargaWarn');
+  const aircraftInput = bookForm ? bookForm.aircraft : null;
 
-  function resetAircraftPick() {
-    if (aircraftPick) aircraftPick.value = '';
+  function clearFuelUi() {
     if (fuelHint) {
       fuelHint.hidden = true;
       fuelHint.textContent = '';
     }
+    if (fuelKnownBlock) fuelKnownBlock.hidden = true;
+    if (combustibleDisplay) combustibleDisplay.value = '';
+    if (primeraCargaWarn) primeraCargaWarn.hidden = true;
+  }
+
+  function resetAircraftPick() {
+    if (aircraftPick) aircraftPick.value = '';
+    clearFuelUi();
+  }
+
+  function applyLookupResult(data, { fromPick } = {}) {
+    clearFuelUi();
+    if (!data || !data.ok) return;
+
+    const unknown = !!(data.primera_carga || data.unknown_matricula);
+    if (!unknown && data.combustible) {
+      if (fuelKnownBlock) fuelKnownBlock.hidden = false;
+      if (combustibleDisplay) combustibleDisplay.value = data.combustible;
+      if (fuelHint) {
+        fuelHint.textContent = 'Combustible bloqueado según listado (readonly).';
+        fuelHint.hidden = false;
+      }
+    } else {
+      if (primeraCargaWarn) primeraCargaWarn.hidden = false;
+      if (fuelHint) {
+        fuelHint.textContent = fromPick
+          ? 'Matrícula de tu lista sin combustible en el maestro: primera carga.'
+          : 'Matrícula nueva o sin combustible conocido: el operario reconfirmará en planta.';
+        fuelHint.hidden = false;
+      }
+    }
+
+    if (data.modelo && bookForm && bookForm.aircraft_model && !bookForm.aircraft_model.value.trim()) {
+      bookForm.aircraft_model.value = data.modelo;
+    }
+  }
+
+  async function lookupMatricula(raw, opts) {
+    const value = (raw || '').trim();
+    if (value.length < 2) {
+      clearFuelUi();
+      return;
+    }
+    const seq = ++lookupSeq;
+    if (fuelHint) {
+      fuelHint.textContent = 'Buscando matrícula…';
+      fuelHint.hidden = false;
+    }
+    try {
+      const response = await fetch('/api/matricula/' + encodeURIComponent(value), {
+        headers: { Accept: 'application/json' },
+      });
+      if (seq !== lookupSeq) return;
+      if (response.status === 401) {
+        clearFuelUi();
+        return;
+      }
+      const data = await response.json().catch(() => null);
+      if (seq !== lookupSeq) return;
+      applyLookupResult(data, opts);
+    } catch (_) {
+      if (seq !== lookupSeq) return;
+      clearFuelUi();
+    }
+  }
+
+  function scheduleLookup(raw, opts) {
+    if (lookupTimer) clearTimeout(lookupTimer);
+    lookupTimer = setTimeout(() => lookupMatricula(raw, opts), 350);
   }
 
   function applyAircraftPick() {
     if (!aircraftPick || !bookForm) return;
     const opt = aircraftPick.selectedOptions[0];
     if (!opt || !opt.value) {
-      if (fuelHint) {
-        fuelHint.hidden = true;
-        fuelHint.textContent = '';
-      }
+      clearFuelUi();
       return;
     }
     const matricula = opt.dataset.matricula || '';
     const modelo = opt.dataset.modelo || '';
-    const combustible = opt.dataset.combustible || '';
     if (matricula) bookForm.aircraft.value = matricula;
     if (modelo) bookForm.aircraft_model.value = modelo;
-    if (fuelHint) {
-      if (combustible) {
-        fuelHint.textContent = 'Combustible de tu lista: ' + combustible + ' (se confirma con el listado al reservar).';
-        fuelHint.hidden = false;
-      } else {
-        fuelHint.textContent = 'Sin combustible en tu lista: si es primera carga, el operador lo reconfirmará.';
-        fuelHint.hidden = false;
-      }
-    }
+    // El maestro manda: lookup confirma combustible readonly / primera carga
+    lookupMatricula(matricula, { fromPick: true });
   }
 
   if (aircraftPick) {
     aircraftPick.addEventListener('change', applyAircraftPick);
+  }
+
+  if (aircraftInput) {
+    aircraftInput.addEventListener('input', () => {
+      if (aircraftPick && aircraftPick.value) aircraftPick.value = '';
+      scheduleLookup(aircraftInput.value, { fromPick: false });
+    });
+    aircraftInput.addEventListener('blur', () => {
+      lookupMatricula(aircraftInput.value, { fromPick: false });
+    });
   }
 
   /* ---------- Envío de la reserva ---------- */

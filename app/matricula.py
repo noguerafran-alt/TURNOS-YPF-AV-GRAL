@@ -1,7 +1,7 @@
 """Lookup / upsert matrícula → combustible.
 
 Normalización alineada al modelo: trim, upper, sin espacios ni guiones.
-Upsert SOLO al confirmar ABASTECIDO (carga exitosa).
+Upsert SOLO al confirmar ABASTECIDO (carga exitosa), salvo import admin del maestro.
 """
 
 from __future__ import annotations
@@ -24,11 +24,23 @@ def normalize_grado(value: str) -> str:
     s = s.replace("-", " ").replace("_", " ")
     s = " ".join(s.split())
     compact = s.replace(" ", "")
-    if compact in {"JETA1", "JETA-1"} or "JET" in s:
+    if compact in {"JETA1", "JETA-1"} or "JET" in s or "AEROKEROSENE" in s:
         return "JET A-1"
-    if "AVGAS" in s or "100LL" in s:
+    if "AVGAS" in s or "100LL" in s or "100 LL" in s:
         return "AVGAS 100LL"
     return s
+
+
+def grado_from_producto_nombre(producto: str) -> str | None:
+    """Mapea ProductoNombre del maestro → grado interno. None si no se reconoce."""
+    s = (producto or "").upper().strip()
+    if not s:
+        return None
+    if "JET" in s or "AEROKEROSENE" in s:
+        return "JET A-1"
+    if "AVGAS" in s or "100LL" in s or "100 LL" in s:
+        return "AVGAS 100LL"
+    return None
 
 
 def grados_compatibles(a: str, b: str) -> bool:
@@ -45,6 +57,7 @@ class MatriculaLookup:
     unknown_matricula: bool
     matricula: str
     combustible: str | None
+    modelo: str | None = None
 
     def as_dict(self) -> dict:
         return {
@@ -54,6 +67,7 @@ class MatriculaLookup:
             "unknown_matricula": self.unknown_matricula,
             "matricula": self.matricula,
             "combustible": self.combustible,
+            "modelo": self.modelo,
         }
 
 
@@ -67,6 +81,7 @@ def lookup_matricula(db: Session, raw: str) -> MatriculaLookup:
             unknown_matricula=True,
             matricula=display,
             combustible=None,
+            modelo=None,
         )
 
     row = db.scalar(
@@ -82,9 +97,11 @@ def lookup_matricula(db: Session, raw: str) -> MatriculaLookup:
             unknown_matricula=True,
             matricula=display or key,
             combustible=None,
+            modelo=None,
         )
 
     fuel = (row.combustible or "").strip() or None
+    modelo = (getattr(row, "modelo", None) or "").strip() or None
     if fuel is None:
         # Soft-B: conocida pero sin combustible
         return MatriculaLookup(
@@ -93,6 +110,7 @@ def lookup_matricula(db: Session, raw: str) -> MatriculaLookup:
             unknown_matricula=False,
             matricula=row.matricula_display or display or key,
             combustible=None,
+            modelo=modelo,
         )
 
     return MatriculaLookup(
@@ -101,13 +119,19 @@ def lookup_matricula(db: Session, raw: str) -> MatriculaLookup:
         unknown_matricula=False,
         matricula=row.matricula_display or display or key,
         combustible=fuel,
+        modelo=modelo,
     )
 
 
 def upsert_matricula_combustible(
-    db: Session, *, raw_matricula: str, combustible: str
+    db: Session,
+    *,
+    raw_matricula: str,
+    combustible: str,
+    modelo: str | None = None,
+    activo: bool = True,
 ) -> MatriculaCombustible:
-    """Upsert al listado. Llamar SOLO al pasar a ABASTECIDO."""
+    """Upsert al listado. En operación normal: SOLO al pasar a ABASTECIDO."""
     key = normalize_matricula(raw_matricula)
     display = (raw_matricula or "").strip().upper() or key
     fuel = (combustible or "").strip()
@@ -120,11 +144,14 @@ def upsert_matricula_combustible(
             matricula=key,
             matricula_display=display,
             combustible=fuel,
-            activo=True,
+            modelo=(modelo or "").strip()[:80],
+            activo=activo,
         )
         db.add(row)
     else:
         row.matricula_display = display or row.matricula_display
         row.combustible = fuel
-        row.activo = True
+        row.activo = activo
+        if modelo is not None and modelo.strip():
+            row.modelo = modelo.strip()[:80]
     return row

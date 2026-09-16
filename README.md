@@ -55,6 +55,8 @@ TURNOS-APP/
 │   │   └── external_ypf.py API READ-ONLY YPF (/external/v1)
 │   ├── templates/         HTML
 │   └── static/            CSS y JS
+├── data/                  maestro matrículas×combustible (xlsx)
+├── scripts/               import maestro y utilidades CLI
 ├── migrations/            historial de esquema (Alembic)
 ├── send_reminders.py      recordatorios a mano (la app los manda sola)
 ├── seed.py                datos de ejemplo
@@ -84,6 +86,8 @@ TURNOS-APP/
 | `POST /api/bookings/{id}/cancel` | Cancelar turno |
 | `/api/docs` | Documentación automática de la API |
 | `/health` | Chequeo de salud |
+| `GET /api/matricula/{matricula}` | Lookup matrícula → combustible (logueado) |
+| `POST /admin/matriculas/import` | Reimportar maestro xlsx (admin) |
 
 
 ### API externa YPF (READ-ONLY)
@@ -91,6 +95,17 @@ TURNOS-APP/
 Prefijo `/external/v1`. Autenticación por `YPF_API_KEY` o `EXTERNAL_API_KEY`
 (`X-API-Key` o `Authorization: Bearer`). Detalle de endpoints en
 [`docs/YPF_API.md`](docs/YPF_API.md).
+
+
+
+### Maestro matrículas × combustible
+
+Listado global `matriculas_combustible` para autofill al pedir turno.
+Detalle en [`docs/MAESTRO_MATRICULAS.md`](docs/MAESTRO_MATRICULAS.md).
+
+```bash
+python -m scripts.import_maestro_matriculas
+```
 
 
 ---
