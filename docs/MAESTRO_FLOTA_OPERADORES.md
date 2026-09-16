@@ -1,12 +1,23 @@
-# Maestro flota (abastecedoras) + operadores
+# Maestro flota: hangares + abastecedoras + operadores
 
 Fuente live Turnera San Fernando (extracción 2026-09-16):
 
+- `data/hangares.csv` — 17 filas (`Codigo,Nombre,Estado`)
 - `data/abastecedoras.csv` — 6 filas (`ID,Nombre,Grado,Capacidad_L,Estado`)
 - `data/operadores.csv` — 20 filas (`Nombre,Estado`)
 - Contexto: `data/flota-operadores-extract.md`
 
 ## Modelo
+
+### Hangares
+
+Campos: `codigo` (H1…, PP, PN, PLAT_YPF), `nombre`, `agenda_id` nullable,
+`capacidad` opcional, `activo`.
+
+- Estado CSV **Activo** → `activo=true`
+- **`agenda_id=NULL`**: maestro **global**. Visible en Maestros con Planta =
+  «Todas / global» y también al filtrar una planta concreta (los listados
+  incluyen `agenda_id IS NULL` OR la planta elegida).
 
 ### Abastecedoras
 
@@ -38,8 +49,9 @@ python -m scripts.seed_flota_operadores
 python -m scripts.seed_flota_operadores --dry-run
 ```
 
-Upsert: abastecedoras por `codigo`; operadores por `nombre_norm`.
-Re-ejecutar no duplica filas.
+Upsert: hangares por `codigo`; abastecedoras por `codigo`; operadores por
+`nombre_norm`. Re-ejecutar no duplica filas. Si falta `data/hangares.csv`, el
+script omite hangares y sigue con abast/ops (o pasar `--hangares PATH`).
 
 Tras migrar (`alembic upgrade head` / arranque de la app), correr el seed una vez
 en cada entorno.

@@ -74,6 +74,7 @@ def _hangar_json(h: Hangar) -> dict:
         "codigo": h.codigo,
         "nombre": h.nombre,
         "agenda_id": h.agenda_id,
+        "ambito": "Global" if h.agenda_id is None else f"Planta #{h.agenda_id}",
         "capacidad": h.capacidad,
         "activo": h.activo,
     }
@@ -87,6 +88,7 @@ def _ab_json(a: Abastecedora) -> dict:
         "grado": a.grado,
         "capacidad_l": a.capacidad_l,
         "agenda_id": a.agenda_id,
+        "ambito": "Global" if a.agenda_id is None else f"Planta #{a.agenda_id}",
         "activo": a.activo,
         "fuera_de_servicio_hasta": a.fuera_de_servicio_hasta.isoformat()
         if a.fuera_de_servicio_hasta
@@ -151,6 +153,18 @@ def _count_level2(db: Session, *, excluding: int | None = None) -> int:
     if excluding is not None:
         q = q.where(User.id != excluding)
     return db.scalar(q) or 0
+
+
+def _maestro_agenda_scope(column, agenda_id: int | None):
+    """Filtro de planta para maestros con agenda_id nullable.
+
+    - agenda_id None (UI «Todas / global»): sin filtro → globales (NULL) + todas las plantas.
+    - agenda_id set: globales (agenda_id IS NULL) OR de esa planta.
+    Nunca ocultar filas globales al filtrar por planta.
+    """
+    if agenda_id is None:
+        return None
+    return or_(column.is_(None), column == agenda_id)
 
 
 # ============================================================
@@ -405,14 +419,15 @@ class HangarBody(BaseModel):
 
 @router.get("/coord/maestros/hangares")
 def list_hangares(
-    agenda_id: int | None = None,
+    agenda_id: int | None = Query(None, description="Planta; omitir = Todas/global (incluye agenda_id NULL)"),
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
     _ = admin
     stmt = select(Hangar).order_by(Hangar.codigo)
-    if agenda_id:
-        stmt = stmt.where(or_(Hangar.agenda_id.is_(None), Hangar.agenda_id == agenda_id))
+    scope = _maestro_agenda_scope(Hangar.agenda_id, agenda_id)
+    if scope is not None:
+        stmt = stmt.where(scope)
     rows = db.scalars(stmt).all()
     return {"ok": True, "total": len(rows), "items": [_hangar_json(h) for h in rows]}
 
@@ -515,14 +530,15 @@ class AbastecedoraMaestroBody(BaseModel):
 
 @router.get("/coord/maestros/abastecedoras")
 def list_abs(
-    agenda_id: int | None = None,
+    agenda_id: int | None = Query(None, description="Planta; omitir = Todas/global (incluye agenda_id NULL)"),
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
     _ = admin
     stmt = select(Abastecedora).order_by(Abastecedora.sort_order, Abastecedora.codigo, Abastecedora.nombre)
-    if agenda_id:
-        stmt = stmt.where(or_(Abastecedora.agenda_id.is_(None), Abastecedora.agenda_id == agenda_id))
+    scope = _maestro_agenda_scope(Abastecedora.agenda_id, agenda_id)
+    if scope is not None:
+        stmt = stmt.where(scope)
     rows = db.scalars(stmt).all()
     return {"ok": True, "total": len(rows), "items": [_ab_json(a) for a in rows]}
 

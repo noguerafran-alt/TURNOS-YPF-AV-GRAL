@@ -100,9 +100,9 @@
       <h2 style="margin:0;flex:1" id="hg-title">Hangares</h2>
       <button type="button" class="btn btn--sm" id="hg-add">+ Hangar</button>
     </div>
-    <div class="notice--info">Eliminar borra el hangar definitivamente. Si está en uso (aeronaves) el sistema no lo borra: desactivalo.</div>
+    <div class="notice--info">Maestros globales (agenda_id vacío) se ven con «Todas / global» y también al filtrar una planta. Eliminar borra el hangar; si está en uso, desactivalo.</div>
     <table class="table table--mae"><thead><tr>
-      <th>Código</th><th>Nombre</th><th>Estado</th><th></th>
+      <th>Código</th><th>Nombre</th><th>Ámbito</th><th>Estado</th><th></th>
     </tr></thead><tbody id="hg-body"></tbody></table>
   </section>
 
@@ -114,7 +114,7 @@
     </div>
     <div class="notice--info">Cada abastecedora está dedicada a un único grado (práctica estándar anti-misfuelling).</div>
     <table class="table table--mae"><thead><tr>
-      <th>ID</th><th>Nombre</th><th>Grado</th><th>Capacidad (L)</th><th>Estado</th><th></th>
+      <th>ID</th><th>Nombre</th><th>Grado</th><th>Capacidad (L)</th><th>Ámbito</th><th>Estado</th><th></th>
     </tr></thead><tbody id="ab-body"></tbody></table>
   </section>
 
@@ -398,19 +398,21 @@
     const data = await api('/coord/maestros/hangares?' + q);
     hangares = data.items || [];
     app.dataset.hangares = JSON.stringify(hangares);
-    document.getElementById('hg-title').textContent = 'Hangares (' + data.total + ')';
+    const scopeLabel = agendaId() ? 'planta + globales' : 'Todas / global';
+    document.getElementById('hg-title').textContent = 'Hangares (' + data.total + ') — ' + scopeLabel;
     const tb = document.getElementById('hg-body');
     tb.innerHTML = hangares.map(h => `
       <tr data-id="${h.id}">
         <td><strong>${esc(h.codigo)}</strong></td>
         <td>${esc(h.nombre)}</td>
+        <td>${esc(h.ambito || (h.agenda_id == null ? 'Global' : ('Planta #' + h.agenda_id)))}</td>
         <td>${h.activo ? '<span class="chip chip--ok">Activo</span>' : '<span class="chip chip--warn">Inactivo</span>'}</td>
         <td class="table__actions">
           <button type="button" class="btn btn--outline btn--sm hg-edit">Editar</button>
           <button type="button" class="btn btn--outline btn--sm hg-tog">${h.activo ? 'Desactivar' : 'Activar'}</button>
           <button type="button" class="btn btn--danger btn--sm hg-del">Eliminar</button>
         </td>
-      </tr>`).join('') || '<tr><td colspan="4" class="muted">Sin hangares.</td></tr>';
+      </tr>`).join('') || '<tr><td colspan="5" class="muted">Sin hangares.</td></tr>';
     tb.querySelectorAll('tr[data-id]').forEach(tr => {
       const id = Number(tr.dataset.id);
       const h = hangares.find(x => x.id === id);
@@ -472,7 +474,8 @@
     const q = new URLSearchParams();
     const aid = agendaId(); if (aid) q.set('agenda_id', aid);
     const data = await api('/coord/maestros/abastecedoras?' + q);
-    document.getElementById('ab-title').textContent = 'Abastecedoras (' + data.total + ')';
+    const scopeLabel = agendaId() ? 'planta + globales' : 'Todas / global';
+    document.getElementById('ab-title').textContent = 'Abastecedoras (' + data.total + ') — ' + scopeLabel;
     const tb = document.getElementById('ab-body');
     tb.innerHTML = (data.items||[]).map(a => `
       <tr data-id="${a.id}">
@@ -480,13 +483,14 @@
         <td>${esc(a.nombre)}</td>
         <td>${gradoChip(a.grado)}</td>
         <td>${a.capacidad_l != null ? a.capacidad_l : '—'}</td>
+        <td>${esc(a.ambito || (a.agenda_id == null ? 'Global' : ('Planta #' + a.agenda_id)))}</td>
         <td>${a.activo ? '<span class="chip chip--ok">Activa</span>' : '<span class="chip chip--warn">Fuera de servicio</span>'}</td>
         <td class="table__actions">
           <button type="button" class="btn btn--outline btn--sm ab-edit">Editar</button>
           <button type="button" class="btn btn--danger btn--sm ab-grado">Cambiar grado</button>
           <button type="button" class="btn btn--danger btn--sm ab-del">Eliminar</button>
         </td>
-      </tr>`).join('');
+      </tr>`).join('') || '<tr><td colspan="7" class="muted">Sin abastecedoras.</td></tr>';
     tb.querySelectorAll('tr[data-id]').forEach(tr => {
       const id = Number(tr.dataset.id);
       const a = data.items.find(x => x.id === id);
