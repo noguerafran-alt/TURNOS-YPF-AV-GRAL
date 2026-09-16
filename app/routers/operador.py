@@ -6,14 +6,14 @@ from datetime import UTC, date, datetime, time, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.auth import require_operador
 from app.config import settings
 from app.database import get_db
 from app.matricula import upsert_matricula_combustible
-from app.models import Booking, BookingStatus, CoordinacionStatus, User
+from app.models import Booking, BookingStatus, CoordinacionStatus, Operador, User
 from app.templating import templates
 
 router = APIRouter(tags=["operador"])
@@ -49,9 +49,20 @@ def _booking_json(b: Booking) -> dict:
         "agenda_name": b.agenda.full_name if b.agenda else "",
         "abastecedora_id": b.abastecedora_id,
         "abastecedora": ab.nombre if ab else None,
+        "operador_id": b.operador_id,
         "operador_user_id": b.operador_user_id,
         "ausente_motivo": b.ausente_motivo,
     }
+
+
+def _assigned_to_user(booking: Booking, op: User) -> bool:
+    """Asignación vía maestro.user_id o legacy operador_user_id."""
+    if booking.operador_user_id == op.id:
+        return True
+    maestro = booking.operador
+    if maestro is not None and maestro.user_id == op.id:
+        return True
+    return False
 
 
 def _get_assigned(db: Session, booking_id: int, op: User) -> Booking:
@@ -66,7 +77,7 @@ def _get_assigned(db: Session, booking_id: int, op: User) -> Booking:
     )
     if booking is None:
         raise HTTPException(status_code=404, detail="No encontramos ese turno.")
-    if booking.operador_user_id != op.id:
+    if not _assigned_to_user(booking, op):
         raise HTTPException(status_code=403, detail="Ese turno no está asignado a vos.")
     return booking
 
@@ -117,6 +128,13 @@ def operador_board(
         raise HTTPException(status_code=400, detail="Fecha inválida.") from exc
 
     day_from, day_to = _day_bounds_utc(day)
+    assign_filter = Booking.operador_user_id == op.id
+    maestro_ids = list(
+        db.scalars(select(Operador.id).where(Operador.user_id == op.id)).all()
+    )
+    if maestro_ids:
+        assign_filter = or_(assign_filter, Booking.operador_id.in_(maestro_ids))
+
     rows = db.scalars(
         select(Booking)
         .options(
@@ -127,7 +145,7 @@ def operador_board(
         .where(
             Booking.status == BookingStatus.CONFIRMED,
             Booking.coordinacion_status == CoordinacionStatus.PROGRAMADO,
-            Booking.operador_user_id == op.id,
+            assign_filter,
             Booking.starts_at >= day_from,
             Booking.starts_at < day_to,
         )
