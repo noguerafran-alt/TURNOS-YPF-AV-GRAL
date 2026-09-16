@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block head %}
+<style>
+  .dash-wrap { max-width: 1180px; }
+  .dash-head { margin-bottom: 1rem; }
+  .dash-head h1 {
+    margin: 0 0 .35rem;
+    padding-bottom: .35rem;
+    border-bottom: 3px solid var(--navy-800);
+    display: inline-block;
+  }
+  .dash-filters {
+    display: flex; flex-wrap: wrap; gap: .75rem 1.2rem; align-items: flex-end;
+    justify-content: space-between;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 1rem 1.2rem; margin-bottom: 1.1rem; box-shadow: var(--shadow-sm);
+  }
+  .dash-filters__left { display: flex; flex-wrap: wrap; gap: .75rem 1rem; align-items: flex-end; }
+  .dash-filters .field { margin: 0; min-width: 150px; }
+  .dash-filters .field--grow { flex: 1; min-width: 180px; }
+  .dash-date-label { font-size: .92rem; color: var(--muted); padding-bottom: .35rem; text-transform: capitalize; }
+
+  .dash-kpis {
+    display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .7rem; margin-bottom: 1.1rem;
+  }
+  @media (max-width: 1000px) { .dash-kpis { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 560px) { .dash-kpis { grid-template-columns: repeat(2, 1fr); } }
+  .dash-kpi {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: .9rem .85rem .75rem; box-shadow: var(--shadow-sm);
+    border-top: 4px solid var(--navy-800);
+  }
+  .dash-kpi--amber { border-top-color: var(--accent); }
+  .dash-kpi--teal { border-top-color: #1F8A70; }
+  .dash-kpi--ok { border-top-color: var(--ok); }
+  .dash-kpi--danger { border-top-color: #A0522D; }
+  .dash-kpi--blue { border-top-color: var(--navy-600); }
+  .dash-kpi__num {
+    display: block; font-family: var(--font-head); font-size: 1.65rem; font-weight: 700;
+    color: var(--text); line-height: 1.1;
+  }
+  .dash-kpi__label {
+    display: block; margin-top: .25rem; font-size: .68rem; font-weight: 700;
+    letter-spacing: .04em; text-transform: uppercase; color: var(--muted);
+  }
+
+  .dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+  @media (max-width: 800px) { .dash-grid { grid-template-columns: 1fr; } }
+  .dash-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 1rem 1.15rem; box-shadow: var(--shadow-sm);
+  }
+  .dash-card h2 {
+    margin: 0 0 .85rem; font-size: 1rem; display: flex; align-items: center; gap: .45rem;
+    color: var(--text);
+  }
+  .dash-card h2 .ico { font-size: 1.05rem; line-height: 1; }
+  .dash-card--full { margin-bottom: 1rem; }
+  .dash-empty { color: var(--muted); font-size: .92rem; padding: .4rem 0 .2rem; }
+
+  .vol-row {
+    display: flex; align-items: center; justify-content: space-between; gap: .75rem;
+    padding: .55rem 0; border-bottom: 1px solid var(--border);
+  }
+  .vol-row:last-child { border-bottom: 0; }
+  .vol-row__litros { font-family: var(--font-head); font-weight: 700; color: var(--navy-800); }
+
+  .occ-line { color: var(--muted); font-size: .9rem; margin-bottom: .35rem; }
+  .occ-pct { font-family: var(--font-head); font-size: 2rem; font-weight: 700; color: var(--text); line-height: 1.1; }
+  .occ-bar {
+    height: 8px; background: #EEF3F9; border-radius: var(--radius-pill); margin: .55rem 0 1rem; overflow: hidden;
+  }
+  .occ-bar > span { display: block; height: 100%; background: var(--navy-800); border-radius: inherit; width: 0; }
+
+  .flota-block { border-top: 1px solid var(--border); padding-top: .85rem; margin-top: .2rem; }
+  .flota-block h3 {
+    margin: 0 0 .7rem; font-size: .95rem; color: var(--text);
+    display: flex; align-items: center; gap: .4rem;
+  }
+  .flota-row {
+    display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem;
+    margin-bottom: .55rem; font-size: .9rem;
+  }
+  .flota-ok { color: var(--ok); font-weight: 600; font-size: .85rem; }
+  .flota-warn { color: var(--danger); font-weight: 600; font-size: .85rem; }
+
+  .dash-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  .dash-table th {
+    text-align: left; font-size: .72rem; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--navy-800); font-weight: 700; padding: .35rem .4rem .55rem;
+    border-bottom: 2px solid var(--navy-800);
+  }
+  .dash-table td {
+    padding: .55rem .4rem; border-bottom: 1px solid var(--border); vertical-align: middle;
+  }
+  .dash-table tr:last-child td { border-bottom: 0; }
+  .dash-table .mono { font-family: ui-monospace, monospace; font-weight: 700; }
+  .chip--pendiente { background: var(--warn-bg); color: var(--warn); }
+  .chip--programado { background: #EEF3FA; color: var(--navy-800); }
+  .chip--abastecido { background: var(--ok-bg); color: var(--ok); }
+  .chip--ausente { background: #EEF1F5; color: var(--muted); border: 1px solid var(--border); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dash-wrap" id="dash-app" data-today="{{ today }}">
+  <div class="dash-head panel-head">
+    <div>
+      <h1>Dashboard</h1>
+      <p class="muted" style="margin:0">Estado operativo de la aeroplanta para la fecha seleccionada.</p>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+      <a class="btn btn--outline btn--sm" href="/coord">Tablero</a>
+      <a class="btn btn--outline btn--sm" href="/coord/agenda">Agenda</a>
+      <a class="btn btn--outline btn--sm" href="/coord/maestros">Maestros</a>
+    </div>
+  </div>
+
+  <div class="dash-filters">
+    <div class="dash-filters__left">
+      <div class="field">
+        <label for="f-date">Fecha</label>
+        <input type="date" id="f-date" value="{{ today }}" />
+      </div>
+      <div class="dash-date-label" id="f-date-text"></div>
+      <div class="field field--grow">
+        <label for="f-agenda">Planta / Agenda</label>
+        <select id="f-agenda">
+          <option value="">Todas</option>
+          {% for a in agendas %}
+            <option value="{{ a.id }}" {% if loop.first %}selected{% endif %}>{{ a.full_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <a class="btn btn--outline" id="btn-agenda" href="/coord/agenda">Ir a la agenda →</a>
+  </div>
+
+  <div class="dash-kpis" id="dash-kpis">
+    <div class="dash-kpi"><span class="dash-kpi__num">—</span><span class="dash-kpi__label">Turnos del día</span></div>
+    <div class="dash-kpi dash-kpi--amber"><span class="dash-kpi__num">—</span><span class="dash-kpi__label">Sin asignar</span></div>
+    <div class="dash-kpi dash-kpi--teal"><span class="dash-kpi__num">—</span><span class="dash-kpi__label">Programados</span></div>
+    <div class="dash-kpi dash-kpi--ok"><span class="dash-kpi__num">—</span><span class="dash-kpi__label">Abastecidos</span></div>
+    <div class="dash-kpi dash-kpi--danger"><span class="dash-kpi__num">—</span><span class="dash-kpi__label">No se presentó</span></div>
+    <div class="dash-kpi dash-kpi--blue"><span class="dash-kpi__num">—</span><span class="dash-kpi__label">Litros previstos</span></div>
+  </div>
+
+  <div class="dash-grid">
+    <section class="dash-card">
+      <h2><span class="ico" aria-hidden="true">⛽</span> Volumen por grado</h2>
+      <div id="dash-volumen"><p class="dash-empty">Cargando…</p></div>
+    </section>
+    <section class="dash-card">
+      <h2><span class="ico" aria-hidden="true">📊</span> Ocupación de la grilla</h2>
+      <div id="dash-ocupacion"><p class="dash-empty">Cargando…</p></div>
+      <div class="flota-block">
+        <h3><span class="ico" aria-hidden="true">🚛</span> Flota</h3>
+        <div id="dash-flota"><p class="dash-empty">Cargando…</p></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="dash-grid">
+    <section class="dash-card">
+      <h2><span class="ico" aria-hidden="true">🚛</span> Uso de abastecedoras</h2>
+      <div id="dash-uso"><p class="dash-empty">Cargando…</p></div>
+    </section>
+    <section class="dash-card">
+      <h2><span class="ico" aria-hidden="true">🏢</span> Clientes del día</h2>
+      <div id="dash-clientes"><p class="dash-empty">Cargando…</p></div>
+    </section>
+  </div>
+
+  <section class="dash-card dash-card--full">
+    <h2><span class="ico" aria-hidden="true">🕒</span> Turnos activos del día</h2>
+    <div id="dash-turnos"><p class="dash-empty">Cargando…</p></div>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const root = document.getElementById('dash-app');
+  const dateEl = document.getElementById('f-date');
+  const agendaEl = document.getElementById('f-agenda');
+  const dateText = document.getElementById('f-date-text');
+  const btnAgenda = document.getElementById('btn-agenda');
+
+  const params = new URLSearchParams(location.search);
+  if (params.get('date')) dateEl.value = params.get('date');
+  if (params.get('agenda_id')) agendaEl.value = params.get('agenda_id');
+
+  function fmtDateLong(iso) {
+    const [y, m, d] = iso.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    return dt.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  function chipGrado(chip, label) {
+    if (chip === 'jet') return '<span class="chip chip--jet">' + esc(label) + '</span>';
+    if (chip === 'avgas') return '<span class="chip chip--avgas">' + esc(label) + '</span>';
+    return '<span class="chip">' + esc(label) + '</span>';
+  }
+
+  function chipEstado(code, label) {
+    const map = {
+      PENDIENTE: 'chip--pendiente',
+      PROGRAMADO: 'chip--programado',
+      ABASTECIDO: 'chip--abastecido',
+      AUSENTE: 'chip--ausente',
+    };
+    return '<span class="chip ' + (map[code] || '') + '">' + esc(label) + '</span>';
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function fmtNum(n) {
+    return Number(n || 0).toLocaleString('es-AR');
+  }
+
+  function updateAgendaLink() {
+    const q = new URLSearchParams();
+    if (dateEl.value) q.set('date', dateEl.value);
+    if (agendaEl.value) q.set('agenda_id', agendaEl.value);
+    btnAgenda.href = '/coord/agenda' + (q.toString() ? ('?' + q.toString()) : '');
+  }
+
+  function syncUrl() {
+    const q = new URLSearchParams();
+    if (dateEl.value) q.set('date', dateEl.value);
+    if (agendaEl.value) q.set('agenda_id', agendaEl.value);
+    history.replaceState(null, '', location.pathname + (q.toString() ? ('?' + q.toString()) : ''));
+  }
+
+  async function load() {
+    dateText.textContent = fmtDateLong(dateEl.value);
+    updateAgendaLink();
+    syncUrl();
+    const q = new URLSearchParams({ date: dateEl.value });
+    if (agendaEl.value) q.set('agenda_id', agendaEl.value);
+    const r = await fetch('/coord/dashboard/data?' + q.toString());
+    if (!r.ok) {
+      document.getElementById('dash-volumen').innerHTML = '<p class="dash-empty">No se pudo cargar el dashboard.</p>';
+      return;
+    }
+    const data = await r.json();
+    render(data);
+  }
+
+  function render(data) {
+    const k = data.kpis || {};
+    document.getElementById('dash-kpis').innerHTML = [
+      kpi('dash-kpi', k.turnos, 'Turnos del día'),
+      kpi('dash-kpi dash-kpi--amber', k.sin_asignar, 'Sin asignar'),
+      kpi('dash-kpi dash-kpi--teal', k.programados, 'Programados'),
+      kpi('dash-kpi dash-kpi--ok', k.abastecidos, 'Abastecidos'),
+      kpi('dash-kpi dash-kpi--danger', k.ausentes, 'No se presentó'),
+      kpi('dash-kpi dash-kpi--blue', k.litros, 'Litros previstos'),
+    ].join('');
+
+    const vols = data.volumen_por_grado || [];
+    document.getElementById('dash-volumen').innerHTML = vols.length
+      ? vols.map(v => (
+          '<div class="vol-row">' +
+            chipGrado(v.chip, v.grado) +
+            '<span class="vol-row__litros">' + fmtNum(v.litros) + ' L</span>' +
+          '</div>'
+        )).join('')
+      : '<p class="dash-empty">Sin turnos para la fecha.</p>';
+
+    const occ = data.ocupacion || {};
+    const capNote = (occ.horarios != null && occ.capacidad != null)
+      ? (occ.ocupados + ' de ' + occ.cupos + ' cupos (' + occ.horarios + ' horarios × ' + occ.capacidad + ')')
+      : (occ.label || (occ.ocupados + ' de ' + occ.cupos + ' cupos'));
+    document.getElementById('dash-ocupacion').innerHTML =
+      '<p class="occ-line">' + esc(capNote) + '</p>' +
+      '<div class="occ-pct">' + fmtNum(occ.pct || 0) + '%</div>' +
+      '<div class="occ-bar"><span style="width:' + Math.min(100, occ.pct || 0) + '%"></span></div>';
+
+    const flota = data.flota || [];
+    document.getElementById('dash-flota').innerHTML = flota.length
+      ? flota.map(f => (
+          '<div class="flota-row">' +
+            chipGrado(f.chip, f.grado) +
+            '<span>' + f.operativas + ' operativa(s) de ' + f.total + '</span>' +
+            (f.completa
+              ? '<span class="flota-ok">✓ flota completa</span>'
+              : '<span class="flota-warn">⚠ equipo fuera de servicio</span>') +
+          '</div>'
+        )).join('')
+      : '<p class="dash-empty">Sin abastecedoras activas.</p>';
+
+    const uso = data.uso_abastecedoras || [];
+    document.getElementById('dash-uso').innerHTML = uso.length
+      ? table(['Equipo', 'Turnos', 'Litros'], uso.map(r => [
+          esc(r.equipo), fmtNum(r.turnos), fmtNum(r.litros)
+        ]))
+      : '<p class="dash-empty">Sin asignaciones para la fecha.</p>';
+
+    const clientes = data.clientes || [];
+    document.getElementById('dash-clientes').innerHTML = clientes.length
+      ? table(['Cliente', 'Turnos', 'Litros'], clientes.map(r => [
+          esc(r.cliente), fmtNum(r.turnos), fmtNum(r.litros)
+        ]))
+      : '<p class="dash-empty">Sin turnos para la fecha.</p>';
+
+    const turnos = data.turnos || [];
+    document.getElementById('dash-turnos').innerHTML = turnos.length
+      ? table(
+          ['Hora', 'Matrícula', 'Grado', 'Volumen', 'Cliente', 'Estado', 'Equipo'],
+          turnos.map(t => [
+            esc(t.hora),
+            '<span class="mono">' + esc(t.matricula) + '</span>',
+            chipGrado(t.chip, t.grado),
+            t.volumen != null ? (fmtNum(t.volumen) + ' L') : '—',
+            esc(t.cliente),
+            chipEstado(t.estado_code, t.estado),
+            esc(t.equipo),
+          ])
+        )
+      : '<p class="dash-empty">No hay turnos activos para la fecha.</p>';
+  }
+
+  function kpi(cls, num, label) {
+    return '<div class="' + cls + '"><span class="dash-kpi__num">' + fmtNum(num) +
+      '</span><span class="dash-kpi__label">' + esc(label) + '</span></div>';
+  }
+
+  function table(headers, rows) {
+    return '<table class="dash-table"><thead><tr>' +
+      headers.map(h => '<th>' + esc(h) + '</th>').join('') +
+      '</tr></thead><tbody>' +
+      rows.map(cols => '<tr>' + cols.map(c => '<td>' + c + '</td>').join('') + '</tr>').join('') +
+      '</tbody></table>';
+  }
+
+  dateEl.addEventListener('change', load);
+  agendaEl.addEventListener('change', load);
+  load();
+})();
+</script>
+{% endblock %}
