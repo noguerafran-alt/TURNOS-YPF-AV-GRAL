@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Mis Aeronaves{% endblock %}
+
+{% block content %}
+  <p class="breadcrumb"><a href="/perfil">Mi perfil</a> · Mis Aeronaves</p>
+
+  <div class="card">
+    <div class="panel-head">
+      <h1>Mis Aeronaves</h1>
+    </div>
+    <p class="muted">
+      Lista personal para agilizar el pedido de turnos. No restringe quién puede cargar:
+      cualquiera puede pedir turno con una matrícula válida, aunque no esté acá.
+    </p>
+
+    {% if saved %}<p class="alert alert--ok">Lista actualizada.</p>{% endif %}
+    {% if error %}<p class="alert alert--error">{{ error }}</p>{% endif %}
+
+    {% if items %}
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Matrícula</th>
+            <th>Modelo</th>
+            <th>Tipo</th>
+            <th>Combustible</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in items %}
+            <tr>
+              <td><strong>{{ a.matricula_display or a.matricula }}</strong></td>
+              <td>{{ a.modelo or "—" }}</td>
+              <td>{{ a.tipo or "—" }}</td>
+              <td>{{ a.combustible or "—" }}</td>
+              <td class="table__actions">
+                <a class="btn btn--outline btn--sm" href="/perfil/aeronaves?edit={{ a.id }}">Editar</a>
+                <form method="post" action="/perfil/aeronaves/{{ a.id }}/quitar"
+                      onsubmit="return confirm('¿Quitar {{ a.matricula_display or a.matricula }} de tu lista? El listado global no se modifica.');">
+                  <button type="submit" class="btn btn--danger btn--sm">Quitar</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty">
+        <p>Todavía no cargaste aeronaves.</p>
+        <p class="hint">Agregá las que uses seguido para prellenarlas al pedir un turno.</p>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="card" style="margin-top:1.2rem">
+    <h2>{{ "Editar aeronave" if editing else "Agregar aeronave" }}</h2>
+    <form method="post" action="{{ '/perfil/aeronaves/' ~ editing.id if editing else '/perfil/aeronaves' }}">
+      <div class="form-row">
+        <div class="field">
+          <label for="matricula">Matrícula *</label>
+          <input type="text" id="matricula" name="matricula" maxlength="40" required
+                 value="{{ editing.matricula_display if editing else '' }}"
+                 placeholder="LV-XXX" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="modelo">Modelo</label>
+          <input type="text" id="modelo" name="modelo" maxlength="60"
+                 value="{{ editing.modelo if editing else '' }}"
+                 placeholder="Ej: Cessna 172" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label for="tipo">Tipo</label>
+          <input type="text" id="tipo" name="tipo" maxlength="60"
+                 value="{{ editing.tipo if editing else '' }}"
+                 placeholder="Ej: Monomotor" />
+        </div>
+        <div class="field">
+          <label for="combustible">Combustible / grado</label>
+          <select id="combustible" name="combustible">
+            <option value="">— Sin especificar —</option>
+            {% for g in grados %}
+              <option value="{{ g }}"
+                {% if editing and editing.combustible == g %}selected{% endif %}>{{ g }}</option>
+            {% endfor %}
+          </select>
+          <p class="hint">Si la matrícula ya está en el listado global, se reutiliza ese grado.</p>
+        </div>
+      </div>
+      <div class="dialog__actions" style="justify-content:flex-start;gap:.6rem">
+        <button type="submit" class="btn btn--accent">
+          {{ "Guardar cambios" if editing else "Agregar a mi lista" }}
+        </button>
+        {% if editing %}
+          <a class="btn btn--outline" href="/perfil/aeronaves">Cancelar</a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+{% endblock %}

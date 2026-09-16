@@ -110,6 +110,9 @@ class User(Base):
     bookings: Mapped[list["Booking"]] = relationship(
         back_populates="user", foreign_keys="Booking.user_id"
     )
+    aircraft: Mapped[list["UserAircraft"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan", order_by="UserAircraft.matricula_display"
+    )
 
     @property
     def display_name(self) -> str:
@@ -346,3 +349,34 @@ class Booking(Base):
     @property
     def is_confirmed(self) -> bool:
         return self.status == BookingStatus.CONFIRMED
+
+
+class UserAircraft(Base):
+    """Aeronave en la lista personal del usuario (Mis Aeronaves).
+
+    Comodidad de cuenta: no es candado de ownership. Cualquiera puede pedir
+    turno con cualquier matrícula válida. Quitar de esta lista NO borra el
+    maestro MatriculaCombustible.
+    """
+
+    __tablename__ = "user_aircraft"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    # Clave normalizada (upper, alfanum) — alineada a MatriculaCombustible.matricula
+    matricula: Mapped[str] = mapped_column(String(40))
+    matricula_display: Mapped[str] = mapped_column(String(40), default="")
+    modelo: Mapped[str] = mapped_column(String(60), default="")
+    tipo: Mapped[str] = mapped_column(String(60), default="")
+    # Grado/combustible preferido; si el maestro tiene uno, se reutiliza al alta
+    combustible: Mapped[str] = mapped_column(String(80), default="")
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    user: Mapped["User"] = relationship(back_populates="aircraft")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "matricula", name="uq_user_aircraft_user_matricula"),
+    )

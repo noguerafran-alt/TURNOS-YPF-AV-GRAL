@@ -130,10 +130,29 @@
     <p class="dialog__slot" id="bookSlotLabel"></p>
 
     <form id="bookForm" class="dialog__body">
+      {% if mis_aeronaves %}
+      <div class="field">
+        <label for="aircraft_pick">Mis Aeronaves</label>
+        <select id="aircraft_pick" name="aircraft_pick">
+          <option value="">— Escribir otra matrícula —</option>
+          {% for a in mis_aeronaves %}
+            <option
+              value="{{ a.id }}"
+              data-matricula={{ (a.matricula_display or a.matricula) | tojson }}
+              data-modelo={{ (a.modelo or "") | tojson }}
+              data-combustible={{ (a.combustible or "") | tojson }}
+            >{{ a.matricula_display or a.matricula }}{% if a.modelo %} · {{ a.modelo }}{% endif %}{% if a.combustible %} · {{ a.combustible }}{% endif %}</option>
+          {% endfor %}
+        </select>
+        <p class="hint">Elegí una de tu lista para prellenar, o escribí otra matrícula válida abajo.</p>
+      </div>
+      {% endif %}
+
       <div class="field">
         <label for="aircraft">Matrícula de la aeronave *</label>
         <input type="text" id="aircraft" name="aircraft" maxlength="40" required
                placeholder="LV-XXX" autocomplete="off" />
+        <p class="hint" id="aircraftFuelHint" hidden></p>
       </div>
 
       <div class="field">

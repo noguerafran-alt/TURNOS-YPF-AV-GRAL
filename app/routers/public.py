@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.auth import get_current_user
 from app.config import settings
 from app.database import get_db
-from app.models import Agenda, Booking, BookingStatus, User
+from app.models import Agenda, Booking, BookingStatus, User, UserAircraft
 from app.slots import build_week, week_start
 from app.templating import templates
 
@@ -64,6 +64,16 @@ def agenda_page(
     prev_monday = monday - timedelta(days=7)
     next_monday = monday + timedelta(days=7)
 
+    mis_aeronaves = []
+    if user is not None:
+        mis_aeronaves = list(
+            db.scalars(
+                select(UserAircraft)
+                .where(UserAircraft.user_id == user.id)
+                .order_by(UserAircraft.matricula_display, UserAircraft.matricula)
+            ).all()
+        )
+
     return templates.TemplateResponse(
         request,
         "agenda.html",
@@ -80,6 +90,7 @@ def agenda_page(
             "prev_month": monday - timedelta(days=30),
             "next_month": monday + timedelta(days=30),
             "max_liters": 20000,
+            "mis_aeronaves": mis_aeronaves,
         },
     )
 
