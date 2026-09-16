@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Empresas{% endblock %}
+
+{% block content %}
+  <nav class="breadcrumb"><a href="/admin">Panel</a> <span>/</span> <span>Empresas</span></nav>
+
+  <h1>Empresas</h1>
+  <p class="muted">
+    Creá una organización cliente y asigná el primer admin. Esa persona invita al resto por email;
+    al entrar con Google quedan vinculados.
+  </p>
+
+  {% if ok %}<p class="alert alert--ok">{{ ok }}</p>{% endif %}
+  {% if error %}<p class="alert alert--error">{{ error }}</p>{% endif %}
+
+  <section class="panel">
+    <h2>Nueva empresa</h2>
+    <form method="post" action="/admin/empresas/crear" class="form-row">
+      <div class="field">
+        <label for="nombre">Nombre *</label>
+        <input type="text" id="nombre" name="nombre" required maxlength="160" placeholder="Ej: Aero Sur SA" />
+      </div>
+      <div class="field">
+        <label for="admin_email">Email del admin *</label>
+        <input type="email" id="admin_email" name="admin_email" required placeholder="admin@empresa.com" />
+      </div>
+      <div class="field">
+        <label for="admin_name">Nombre del admin</label>
+        <input type="text" id="admin_name" name="admin_name" maxlength="160" placeholder="Opcional" />
+      </div>
+      <button type="submit" class="btn btn--accent">Crear empresa</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Listado</h2>
+    {% if empresas %}
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Empresa</th>
+            <th>Estado</th>
+            <th>Miembros</th>
+            <th>Admins</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in empresas %}
+            <tr>
+              <td><strong>{{ e.nombre }}</strong></td>
+              <td>
+                {% if e.activo %}
+                  <span class="chip chip--ok">Activa</span>
+                {% else %}
+                  <span class="chip chip--cancelled">Inactiva</span>
+                {% endif %}
+              </td>
+              <td>{{ e.members|length }}</td>
+              <td>
+                {% set admins = e.members|selectattr('role_in_empresa', 'equalto', 'admin_empresa')|list %}
+                {% if admins %}
+                  {% for a in admins %}
+                    <div>{{ a.email }}</div>
+                  {% endfor %}
+                {% else %}
+                  <span class="muted">—</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">Todavía no hay empresas cargadas.</p>
+    {% endif %}
+  </section>
+{% endblock %}

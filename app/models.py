@@ -91,6 +91,41 @@ ROLE_LABELS = {
 }
 
 
+class RoleInEmpresa(StrEnum):
+    """Rol del usuario dentro de una Empresa (cliente org). Independiente de Role plataforma."""
+
+    ADMIN_EMPRESA = "admin_empresa"
+    USUARIO_EMPRESA = "usuario_empresa"
+
+
+ROLE_IN_EMPRESA_LABELS = {
+    RoleInEmpresa.ADMIN_EMPRESA: "Admin empresa",
+    RoleInEmpresa.USUARIO_EMPRESA: "Usuario empresa",
+}
+
+
+class InvitacionStatus(StrEnum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    CANCELLED = "cancelled"
+
+
+class Empresa(Base):
+    """Organización cliente (operador / flota)."""
+
+    __tablename__ = "empresas"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(160), unique=True, index=True)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
+
+    members: Mapped[list["User"]] = relationship(back_populates="empresa")
+    invitaciones: Mapped[list["InvitacionEmpresa"]] = relationship(
+        back_populates="empresa", cascade="all, delete-orphan"
+    )
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -103,7 +138,14 @@ class User(Base):
 
     # Datos que completa el cliente en su perfil (útiles para contactarlo)
     phone: Mapped[str] = mapped_column(String(40), default="")
+    # Texto libre (cliente individual) o espejo del nombre de Empresa cuando está ligado
     company: Mapped[str] = mapped_column(String(160), default="")
+
+    # Membresía formal a Empresa (fase 1: un usuario ↔ una empresa)
+    empresa_id: Mapped[int | None] = mapped_column(
+        ForeignKey("empresas.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    role_in_empresa: Mapped[str | None] = mapped_column(String(30), nullable=True)
 
     role: Mapped[str] = mapped_column(String(20), default=Role.CLIENTE, index=True)
     is_blocked: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -116,6 +158,10 @@ class User(Base):
     )
     aircraft: Mapped[list["UserAircraft"]] = relationship(
         back_populates="user", cascade="all, delete-orphan", order_by="UserAircraft.matricula_display"
+    )
+    empresa: Mapped["Empresa | None"] = relationship(back_populates="members")
+    invitaciones_enviadas: Mapped[list["InvitacionEmpresa"]] = relationship(
+        back_populates="invited_by_user", foreign_keys="InvitacionEmpresa.invited_by"
     )
 
     @property
@@ -140,6 +186,63 @@ class User(Base):
     @property
     def role_label(self) -> str:
         return ROLE_LABELS.get(self.role, self.role)
+
+    @property
+    def is_admin_empresa(self) -> bool:
+        return (
+            self.empresa_id is not None
+            and self.role_in_empresa == RoleInEmpresa.ADMIN_EMPRESA
+        )
+
+    @property
+    def is_miembro_empresa(self) -> bool:
+        return self.empresa_id is not None
+
+    @property
+    def role_in_empresa_label(self) -> str:
+        if not self.role_in_empresa:
+            return ""
+        return ROLE_IN_EMPRESA_LABELS.get(self.role_in_empresa, self.role_in_empresa)
+
+    @property
+    def empresa_nombre(self) -> str:
+        if self.empresa is not None:
+            return self.empresa.nombre
+        return self.company or ""
+
+
+class InvitacionEmpresa(Base):
+    """Invitación por email a unirse a una Empresa (aceptada al login Google)."""
+
+    __tablename__ = "invitaciones_empresa"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(255), index=True)
+    empresa_id: Mapped[int] = mapped_column(
+        ForeignKey("empresas.id", ondelete="CASCADE"), index=True
+    )
+    invited_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    status: Mapped[str] = mapped_column(
+        String(20), default=InvitacionStatus.PENDING, index=True
+    )
+    # Rol que recibirá al aceptar (default usuario)
+    role_in_empresa: Mapped[str] = mapped_column(
+        String(30), default=RoleInEmpresa.USUARIO_EMPRESA
+    )
+    token: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
+    accepted_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+
+    empresa: Mapped["Empresa"] = relationship(back_populates="invitaciones")
+    invited_by_user: Mapped["User | None"] = relationship(
+        back_populates="invitaciones_enviadas", foreign_keys=[invited_by]
+    )
+
+    __table_args__ = (
+        Index("ix_invitaciones_empresa_email_status", "email", "status"),
+    )
 
 
 class Agenda(Base):
@@ -384,6 +487,8 @@ class Booking(Base):
     combustible_declarado: Mapped[str] = mapped_column(String(80), default="")
     primera_carga: Mapped[bool] = mapped_column(Boolean, default=False)
     unknown_matricula: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Warning UX (no candado): matrícula del maestro con cliente ≠ empresa del solicitante
+    matricula_otra_empresa: Mapped[bool] = mapped_column(Boolean, default=False)
     combustible_reconfirmado_en_persona: Mapped[bool] = mapped_column(Boolean, default=False)
     reconfirm_pregunte_en_persona: Mapped[bool] = mapped_column(Boolean, default=False)
     reconfirm_coincide_declarado: Mapped[bool] = mapped_column(Boolean, default=False)

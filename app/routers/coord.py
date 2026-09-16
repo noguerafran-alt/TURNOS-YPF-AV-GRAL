@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.auth import require_admin, require_user
 from app.config import settings
 from app.database import get_db
+from app.empresa_service import flag_matricula_otra_empresa
 from app.matricula import (
     grados_compatibles,
     lookup_matricula,
@@ -70,13 +71,14 @@ def _booking_json(b: Booking) -> dict:
         "combustible_declarado": b.combustible_declarado,
         "primera_carga": b.primera_carga,
         "unknown_matricula": b.unknown_matricula,
+        "matricula_otra_empresa": bool(getattr(b, "matricula_otra_empresa", False)),
         "badge_primera_carga": bool(b.primera_carga or b.unknown_matricula),
         "combustible_reconfirmado_en_persona": b.combustible_reconfirmado_en_persona,
         "reconfirm_pregunte_en_persona": b.reconfirm_pregunte_en_persona,
         "reconfirm_coincide_declarado": b.reconfirm_coincide_declarado,
         "cliente": user.display_name if user else "",
         "cliente_email": user.email if user else "",
-        "empresa": (user.company if user else "") or "",
+        "empresa": ((user.empresa_nombre if user else "") or (user.company if user else "") or ""),
         "agenda_id": b.agenda_id,
         "agenda_name": b.agenda.full_name if b.agenda else "",
         "abastecedora_id": b.abastecedora_id,
@@ -574,6 +576,7 @@ def crear_manual(
 
     lookup = lookup_matricula(db, body.aircraft)
     fuel = (body.combustible or "").strip() or lookup.combustible or agenda.product or ""
+    otra_empresa = flag_matricula_otra_empresa(db, user=admin, raw_matricula=body.aircraft)
 
     if not body.sobreturno:
         with lock_agenda(db, agenda):
@@ -622,6 +625,7 @@ def crear_manual(
                 combustible_declarado=fuel,
                 primera_carga=lookup.primera_carga,
                 unknown_matricula=lookup.unknown_matricula,
+                matricula_otra_empresa=otra_empresa,
             )
             db.add(booking)
             db.commit()
@@ -644,6 +648,7 @@ def crear_manual(
             combustible_declarado=fuel,
             primera_carga=lookup.primera_carga,
             unknown_matricula=lookup.unknown_matricula,
+            matricula_otra_empresa=otra_empresa,
         )
         db.add(booking)
         db.commit()
