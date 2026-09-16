@@ -2,20 +2,17 @@
 
 Uso:
   python -m scripts.import_maestro_matriculas
-  python -m scripts.import_maestro_matriculas --path /ruta/al.xlsx
-  MAESTRO_MATRICULAS_PATH=/ruta.xlsx python -m scripts.import_maestro_matriculas
+  python -m scripts.import_maestro_matriculas --replace
+  python -m scripts.import_maestro_matriculas --path /ruta/al.xlsx --replace
 
-Por defecto lee data/maestro-aviones-version-final.xlsx (canónico).
-Alternativa versionada: data/maestro-matriculas-combustible.xlsx.
-Hojas soportadas (en orden): BASE FINAL, BASE, MATRICULAS Y COMBUSTIBLE.
+Por defecto: data/maestro-matriculas-combustible.xlsx
 
-Reglas (schema final 2105):
-  - Columnas: CodigoProducto | Combustible | Matricula | Avion
-  - Matricula as-is + normalize (alfanum upper) como clave
-  - Combustible → JET A-1 / AVGAS 100LL (también acepta ProductoNombre legacy)
-  - FULL REPLACE: borra filas previas de matriculas_combustible y carga el archivo
-    (idempotente). Upserts runtime (ABASTECIDO) quedan fuera del maestro hasta
-    el próximo import; el archivo es la fuente de verdad del listado.
+Formato FINAL (sheet BASE / BASE FINAL):
+  CodigoProducto | Combustible | Matricula | Avion
+
+Formato legacy (sheet MATRICULAS Y COMBUSTIBLE) aún soportado.
+
+--replace: FULL REPLACE del maestro (borra filas previas y carga el archivo).
 """
 
 from __future__ import annotations
@@ -32,8 +29,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-DEFAULT_PATH = ROOT / "data" / "maestro-aviones-version-final.xlsx"
-SHEET_CANDIDATES = ("BASE FINAL", "BASE", "MATRICULAS Y COMBUSTIBLE")
+DEFAULT_PATH = ROOT / "data" / "maestro-matriculas-combustible.xlsx"
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger("import_maestro")
@@ -47,16 +43,11 @@ class Candidate:
     modelo: str
 
 
-def _header_index(header: list[str]) -> dict[str, int]:
-    return {h: i for i, h in enumerate(header) if h}
-
-
-def _cell(row: tuple, idx: dict[str, int], *names: str):
-    for name in names:
-        i = idx.get(name)
-        if i is not None and i < len(row) and row[i] not in (None, ""):
-            return row[i]
-    return None
+def _pick_sheet(wb) -> str:
+    for name in ("BASE FINAL", "BASE", "MATRICULAS Y COMBUSTIBLE"):
+        if name in wb.sheetnames:
+            return name
+    return wb.sheetnames[0]
 
 
 def read_candidates(path: Path) -> tuple[list[Candidate], dict]:
@@ -65,132 +56,145 @@ def read_candidates(path: Path) -> tuple[list[Candidate], dict]:
     from app.matricula import grado_from_producto_nombre, normalize_matricula
 
     wb = load_workbook(path, read_only=True, data_only=True)
-    sheet = next((s for s in SHEET_CANDIDATES if s in wb.sheetnames), None)
-    if sheet is None:
-        raise SystemExit(
-            f"Ninguna hoja conocida {SHEET_CANDIDATES}. Hojas: {wb.sheetnames}"
-        )
+    sheet = _pick_sheet(wb)
     ws = wb[sheet]
     rows = ws.iter_rows(values_only=True)
     header = [str(c or "").strip() for c in next(rows)]
-    idx = _header_index(header)
-    log.info("Hoja=%s header=%s", sheet, header)
-
-    stats: dict = {
-        "sheet": sheet,
-        "rows_raw": 0,
-        "rows_valid": 0,
-        "skip_empty_matricula": 0,
-        "skip_unknown_grado": 0,
-        "duplicate_matriculas": 0,
-    }
+    idx = {h: i for i, h in enumerate(header)}
+    stats = Counter()
+    stats["sheet"] = sheet
     by_key: dict[str, Candidate] = {}
-    fuel_counts: Counter = Counter()
+
+    def col(*names, default=None):
+        for n in names:
+            if n in idx:
+                return idx[n]
+        return default
+
+    i_mat = col("Matricula", "Matricula_Validada")
+    i_mat_fb = col("Matricula")
+    i_mat_val = col("Matricula_Validada")
+    i_comb = col("Combustible", "ProductoNombre")
+    i_avion = col("Avion", "Modelo_Avion")
 
     for raw in rows:
         stats["rows_raw"] += 1
-        combustible_raw = _cell(raw, idx, "Combustible", "ProductoNombre")
-        mat_raw = _cell(raw, idx, "Matricula", "Matricula_Validada")
-        if combustible_raw is None and len(raw) > 1 and not idx:
-            combustible_raw = raw[1]
-        if mat_raw is None and len(raw) > 2 and not idx:
-            mat_raw = raw[2]
-        avion = _cell(raw, idx, "Avion", "Modelo_Avion")
-        if (
-            avion is None
-            and len(raw) > 3
-            and "Avion" not in idx
-            and "Modelo_Avion" not in idx
-        ):
-            avion = raw[3] if len(raw) > 3 else None
+        if not raw:
+            continue
+        # Prefer Matricula_Validada if present in legacy
+        mat_raw = None
+        if i_mat_val is not None and i_mat_val < len(raw) and raw[i_mat_val] not in (None, ""):
+            mat_raw = raw[i_mat_val]
+        elif i_mat is not None and i_mat < len(raw):
+            mat_raw = raw[i_mat]
+        elif i_mat_fb is not None and i_mat_fb < len(raw):
+            mat_raw = raw[i_mat_fb]
+
+        comb_raw = raw[i_comb] if i_comb is not None and i_comb < len(raw) else ""
+        modelo = ""
+        if i_avion is not None and i_avion < len(raw) and raw[i_avion] not in (None, ""):
+            modelo = str(raw[i_avion]).strip()
+            if modelo.startswith("#REF"):
+                modelo = ""
+            modelo = modelo[:80]
 
         key = normalize_matricula(str(mat_raw or ""))
         if not key:
             stats["skip_empty_matricula"] += 1
             continue
 
-        grado = grado_from_producto_nombre(str(combustible_raw or ""))
+        grado = grado_from_producto_nombre(str(comb_raw or ""))
+        if not grado:
+            # Combustible may already be "JET A-1" / "AVGAS 100LL"
+            cs = str(comb_raw or "").strip().upper()
+            if "JET" in cs:
+                grado = "JET A-1"
+            elif "AVGAS" in cs or "100LL" in cs:
+                grado = "AVGAS 100LL"
         if not grado:
             stats["skip_unknown_grado"] += 1
-            log.warning(
-                "Grado no mapeado (%s) matrícula=%s",
-                str(combustible_raw or "").strip(),
-                key,
-            )
             continue
 
         display = str(mat_raw or "").strip().upper() or key
-        modelo = str(avion or "").strip()[:80]
-        cand = Candidate(
-            key=key,
-            display=display[:40],
-            grado=grado,
-            modelo=modelo,
-        )
         if key in by_key:
             stats["duplicate_matriculas"] += 1
             continue
-        by_key[key] = cand
-        fuel_counts[grado] += 1
+        by_key[key] = Candidate(key=key, display=display[:40], grado=grado, modelo=modelo)
         stats["rows_valid"] += 1
+        if grado == "JET A-1":
+            stats["jet"] += 1
+        elif grado == "AVGAS 100LL":
+            stats["avgas"] += 1
 
     wb.close()
-
     chosen = list(by_key.values())
     stats["unique_matriculas"] = len(chosen)
-    stats["jet"] = fuel_counts.get("JET A-1", 0)
-    stats["avgas"] = fuel_counts.get("AVGAS 100LL", 0)
-    return chosen, stats
+    return chosen, dict(stats)
 
 
-def import_candidates(candidates: list[Candidate], *, dry_run: bool = False) -> dict:
-    """FULL REPLACE: truncate matriculas_combustible then insert all from file."""
+def import_candidates(
+    candidates: list[Candidate], *, dry_run: bool = False, replace: bool = False
+) -> dict:
     from sqlalchemy import delete, func, select
 
     from app.database import SessionLocal
+    from app.matricula import upsert_matricula_combustible
     from app.models import MatriculaCombustible
 
-    fuel_counts = Counter(c.grado for c in candidates)
+    inserted = updated = deleted = 0
     db = SessionLocal()
     try:
-        existing_count = (
-            db.scalar(select(func.count()).select_from(MatriculaCombustible)) or 0
-        )
-        if dry_run:
-            return {
-                "mode": "full_replace",
-                "would_delete": existing_count,
-                "would_insert": len(candidates),
-                "jet": fuel_counts.get("JET A-1", 0),
-                "avgas": fuel_counts.get("AVGAS 100LL", 0),
-                "total_in_db": None,
-                "dry_run": True,
-            }
-
-        deleted = db.execute(delete(MatriculaCombustible)).rowcount or 0
+        if replace and not dry_run:
+            deleted = db.scalar(select(func.count()).select_from(MatriculaCombustible)) or 0
+            db.execute(delete(MatriculaCombustible))
+            db.flush()
+        existing = {
+            row.matricula: row
+            for row in db.scalars(select(MatriculaCombustible)).all()
+        }
         for cand in candidates:
-            db.add(
-                MatriculaCombustible(
-                    matricula=cand.key,
-                    matricula_display=cand.display,
-                    combustible=cand.grado,
-                    modelo=cand.modelo or "",
-                    activo=True,
+            row = existing.get(cand.key)
+            if row is None:
+                inserted += 1
+                if not dry_run:
+                    upsert_matricula_combustible(
+                        db,
+                        raw_matricula=cand.display,
+                        combustible=cand.grado,
+                        modelo=cand.modelo,
+                        activo=True,
+                    )
+            else:
+                changed = (
+                    (row.combustible or "") != cand.grado
+                    or (row.modelo or "") != (cand.modelo or "")
+                    or not row.activo
+                    or (row.matricula_display or "") != cand.display
                 )
-            )
-        db.commit()
+                if changed:
+                    updated += 1
+                    if not dry_run:
+                        upsert_matricula_combustible(
+                            db,
+                            raw_matricula=cand.display,
+                            combustible=cand.grado,
+                            modelo=cand.modelo or None,
+                            activo=True,
+                        )
+        if not dry_run:
+            db.commit()
         total = db.scalar(select(func.count()).select_from(MatriculaCombustible))
     finally:
         db.close()
 
     return {
-        "mode": "full_replace",
-        "deleted": deleted,
-        "inserted": len(candidates),
-        "jet": fuel_counts.get("JET A-1", 0),
-        "avgas": fuel_counts.get("AVGAS 100LL", 0),
-        "total_in_db": total,
-        "dry_run": False,
+        "inserted": inserted,
+        "updated": updated,
+        "deleted_before_load": deleted if replace else 0,
+        "unchanged": len(candidates) - inserted - updated,
+        "total_in_db": total if not dry_run else None,
+        "dry_run": dry_run,
+        "replace": replace,
     }
 
 
@@ -200,36 +204,33 @@ def resolve_path(cli_path: str | None) -> Path:
     if not path.is_absolute():
         path = (Path.cwd() / path).resolve()
     if not path.exists():
-        alt = ROOT / "data" / "maestro-matriculas-combustible.xlsx"
-        if not cli_path and not os.environ.get("MAESTRO_MATRICULAS_PATH") and alt.exists():
-            log.warning("Canónico ausente (%s); uso %s", path, alt)
-            return alt.resolve()
         raise SystemExit(f"No existe el archivo: {path}")
     return path
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Import maestro matrículas + combustible")
+    parser.add_argument("--path", help="Ruta al xlsx")
+    parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
-        "--path",
-        help="Ruta al xlsx (default: data/maestro-aviones-version-final.xlsx)",
+        "--replace",
+        action="store_true",
+        help="Full replace: borra el maestro y carga el archivo",
     )
-    parser.add_argument("--dry-run", action="store_true", help="Solo cuenta, no escribe")
     args = parser.parse_args(argv)
 
     path = resolve_path(args.path)
     log.info("Leyendo %s", path)
     candidates, read_stats = read_candidates(path)
     log.info("Lectura: %s", read_stats)
-    result = import_candidates(candidates, dry_run=args.dry_run)
+    result = import_candidates(candidates, dry_run=args.dry_run, replace=args.replace)
     log.info("Import: %s", result)
     print(
         f"OK unique={read_stats.get('unique_matriculas')} "
         f"JET={read_stats.get('jet')} AVGAS={read_stats.get('avgas')} "
-        f"mode={result.get('mode')} "
-        f"deleted={result.get('deleted', result.get('would_delete'))} "
-        f"inserted={result.get('inserted', result.get('would_insert'))} "
-        f"total_db={result['total_in_db']} dry_run={args.dry_run}"
+        f"inserted={result['inserted']} updated={result['updated']} "
+        f"deleted={result['deleted_before_load']} total_db={result['total_in_db']} "
+        f"replace={args.replace} dry_run={args.dry_run}"
     )
     return 0
 
