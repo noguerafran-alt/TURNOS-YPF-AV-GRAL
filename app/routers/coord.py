@@ -137,6 +137,264 @@ def api_matricula(
 
 
 # ============================================================
+# Dashboard operativo
+# ============================================================
+STATUS_LABEL = {
+    CoordinacionStatus.PENDIENTE: "Sin asignar",
+    CoordinacionStatus.PROGRAMADO: "Programado",
+    CoordinacionStatus.ABASTECIDO: "Abastecido",
+    CoordinacionStatus.AUSENTE: "No se presentó",
+}
+
+
+def _grado_chip(grado: str) -> str:
+    g = normalize_grado(grado or "")
+    if g == "JET A-1":
+        return "jet"
+    if g == "AVGAS 100LL":
+        return "avgas"
+    return ""
+
+
+def _cliente_nombre(b: Booking) -> str:
+    user = b.user
+    if not user:
+        return "—"
+    return (
+        (getattr(user, "empresa_nombre", None) or "").strip()
+        or (user.company or "").strip()
+        or (user.display_name or "").strip()
+        or (user.email or "").strip()
+        or "—"
+    )
+
+
+def _day_bookings(db: Session, day: date, agenda_id: int | None) -> list[Booking]:
+    day_from, day_to = _day_bounds_utc(day)
+    stmt = (
+        select(Booking)
+        .options(
+            selectinload(Booking.agenda),
+            selectinload(Booking.user),
+            selectinload(Booking.abastecedora),
+            selectinload(Booking.operador),
+        )
+        .where(
+            Booking.status == BookingStatus.CONFIRMED,
+            Booking.coordinacion_status.in_(ACTIVE_COORD),
+            Booking.starts_at >= day_from,
+            Booking.starts_at < day_to,
+        )
+        .order_by(Booking.starts_at)
+    )
+    if agenda_id:
+        stmt = stmt.where(Booking.agenda_id == agenda_id)
+    return list(db.scalars(stmt).all())
+
+
+def _ocupacion_grilla(db: Session, agendas: list[Agenda], day: date) -> dict:
+    from app.slots import SlotStatus, build_week, week_start
+
+    total_horarios = 0
+    total_cupos = 0
+    ocupados = 0
+    monday = week_start(day)
+    for agenda in agendas:
+        week = build_week(db, agenda, monday, include_past_days=True)
+        day_slots = next((d for d in week if d.day == day), None)
+        if not day_slots:
+            continue
+        slots = [s for s in day_slots.slots if s.status != SlotStatus.CLOSED]
+        total_horarios += len(slots)
+        total_cupos += len(slots) * agenda.capacity
+        for s in slots:
+            ocupados += max(0, agenda.capacity - s.free_places)
+    pct = round((ocupados / total_cupos) * 100) if total_cupos else 0
+    return {
+        "ocupados": ocupados,
+        "cupos": total_cupos,
+        "horarios": total_horarios,
+        "capacidad": agendas[0].capacity if len(agendas) == 1 else None,
+        "pct": pct,
+        "label": (
+            f"{ocupados} de {total_cupos} cupos ({total_horarios} horarios"
+            + (f" × {agendas[0].capacity})" if len(agendas) == 1 else ")")
+        ),
+    }
+
+
+def _flota_por_grado(db: Session, day: date, agenda_id: int | None) -> list[dict]:
+    stmt = select(Abastecedora).where(Abastecedora.activo.is_(True)).order_by(
+        Abastecedora.sort_order, Abastecedora.nombre
+    )
+    if agenda_id:
+        stmt = stmt.where(
+            or_(Abastecedora.agenda_id.is_(None), Abastecedora.agenda_id == agenda_id)
+        )
+    rows = list(db.scalars(stmt).all())
+    buckets: dict[str, dict] = {}
+    for a in rows:
+        g = normalize_grado(a.grado) or (a.grado or "—")
+        bucket = buckets.setdefault(
+            g,
+            {"grado": g, "chip": _grado_chip(g), "total": 0, "operativas": 0},
+        )
+        bucket["total"] += 1
+        en_taller = bool(a.fuera_de_servicio_hasta and a.fuera_de_servicio_hasta >= day)
+        if not en_taller:
+            bucket["operativas"] += 1
+    out = []
+    for g in ("AVGAS 100LL", "JET A-1"):
+        if g in buckets:
+            b = buckets.pop(g)
+            completa = b["operativas"] == b["total"]
+            b["completa"] = completa
+            b["estado"] = "flota completa" if completa else "equipo fuera de servicio"
+            out.append(b)
+    for g, b in sorted(buckets.items()):
+        completa = b["operativas"] == b["total"]
+        b["completa"] = completa
+        b["estado"] = "flota completa" if completa else "equipo fuera de servicio"
+        out.append(b)
+    return out
+
+
+def _build_dashboard(db: Session, day: date, agenda_id: int | None) -> dict:
+    agendas_q = select(Agenda).where(Agenda.is_active.is_(True)).order_by(
+        Agenda.sort_order, Agenda.name
+    )
+    if agenda_id:
+        agendas_q = agendas_q.where(Agenda.id == agenda_id)
+    agendas = list(db.scalars(agendas_q).all())
+
+    bookings = _day_bookings(db, day, agenda_id)
+
+    def _count(st: str) -> int:
+        return sum(1 for b in bookings if b.coordinacion_status == st)
+
+    litros = sum(int(b.liters or 0) for b in bookings)
+    kpis = {
+        "turnos": len(bookings),
+        "sin_asignar": _count(CoordinacionStatus.PENDIENTE),
+        "programados": _count(CoordinacionStatus.PROGRAMADO),
+        "abastecidos": _count(CoordinacionStatus.ABASTECIDO),
+        "ausentes": _count(CoordinacionStatus.AUSENTE),
+        "litros": litros,
+    }
+
+    volumen: dict[str, int] = {}
+    for b in bookings:
+        fuel = b.combustible_declarado or (b.agenda.product if b.agenda else "") or ""
+        g = normalize_grado(fuel) or fuel or "Sin grado"
+        volumen[g] = volumen.get(g, 0) + int(b.liters or 0)
+    volumen_por_grado = [
+        {"grado": g, "chip": _grado_chip(g), "litros": lit}
+        for g, lit in sorted(volumen.items(), key=lambda x: (-x[1], x[0]))
+    ]
+
+    uso: dict[int, dict] = {}
+    for b in bookings:
+        if not b.abastecedora_id or not b.abastecedora:
+            continue
+        row = uso.setdefault(
+            b.abastecedora_id,
+            {
+                "equipo": b.abastecedora.nombre,
+                "grado": b.abastecedora.grado,
+                "chip": _grado_chip(b.abastecedora.grado),
+                "turnos": 0,
+                "litros": 0,
+            },
+        )
+        row["turnos"] += 1
+        row["litros"] += int(b.liters or 0)
+    uso_abastecedoras = sorted(uso.values(), key=lambda r: (-r["turnos"], r["equipo"]))
+
+    clientes: dict[str, dict] = {}
+    for b in bookings:
+        name = _cliente_nombre(b)
+        row = clientes.setdefault(name, {"cliente": name, "turnos": 0, "litros": 0})
+        row["turnos"] += 1
+        row["litros"] += int(b.liters or 0)
+    clientes_dia = sorted(clientes.values(), key=lambda r: (-r["turnos"], r["cliente"]))
+
+    turnos_activos = []
+    for b in bookings:
+        local = b.starts_at.astimezone(settings.tz)
+        fuel = b.combustible_declarado or (b.agenda.product if b.agenda else "") or ""
+        g = normalize_grado(fuel) or fuel
+        turnos_activos.append(
+            {
+                "hora": local.strftime("%H:%M"),
+                "matricula": b.aircraft or "—",
+                "grado": g or "—",
+                "chip": _grado_chip(g),
+                "volumen": b.liters,
+                "cliente": _cliente_nombre(b),
+                "estado": STATUS_LABEL.get(b.coordinacion_status, b.coordinacion_status),
+                "estado_code": b.coordinacion_status,
+                "equipo": b.abastecedora.nombre if b.abastecedora else "—",
+            }
+        )
+
+    return {
+        "ok": True,
+        "date": day.isoformat(),
+        "agenda_id": agenda_id,
+        "kpis": kpis,
+        "volumen_por_grado": volumen_por_grado,
+        "ocupacion": _ocupacion_grilla(db, agendas, day) if agendas else {
+            "ocupados": 0,
+            "cupos": 0,
+            "horarios": 0,
+            "capacidad": None,
+            "pct": 0,
+            "label": "0 de 0 cupos",
+        },
+        "flota": _flota_por_grado(db, day, agenda_id),
+        "uso_abastecedoras": uso_abastecedoras,
+        "clientes": clientes_dia,
+        "turnos": turnos_activos,
+    }
+
+
+@router.get("/coord/dashboard")
+def coord_dashboard_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    agendas = db.scalars(
+        select(Agenda).where(Agenda.is_active.is_(True)).order_by(Agenda.sort_order, Agenda.name)
+    ).all()
+    today = datetime.now(settings.tz).date()
+    return templates.TemplateResponse(
+        request,
+        "coord/dashboard.html",
+        {
+            "user": admin,
+            "agendas": agendas,
+            "today": today.isoformat(),
+        },
+    )
+
+
+@router.get("/coord/dashboard/data")
+def coord_dashboard_data(
+    agenda_id: int | None = None,
+    date_str: str | None = Query(None, alias="date"),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    _ = admin
+    try:
+        day = date.fromisoformat(date_str) if date_str else datetime.now(settings.tz).date()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Fecha inválida.") from exc
+    return _build_dashboard(db, day, agenda_id)
+
+
+# ============================================================
 # Panel HTML
 # ============================================================
 @router.get("/coord")
