@@ -254,10 +254,13 @@ def list_operadores(
     db: Session = Depends(get_db),
     _: None = Depends(require_external_api_key),
 ):
-    """Operadores de planta: usuarios nivel1 (y nivel2 activos). Sin secretos."""
+    """Operadores de planta: rol operador (+ nivel1/nivel2 activos). Sin secretos."""
     rows = db.scalars(
         select(User)
-        .where(User.role.in_([Role.NIVEL_1, Role.NIVEL_2]), User.is_blocked.is_(False))
+        .where(
+            User.role.in_([Role.OPERADOR, Role.NIVEL_1, Role.NIVEL_2]),
+            User.is_blocked.is_(False),
+        )
         .order_by(User.name, User.email)
     ).all()
     return {

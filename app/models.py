@@ -69,20 +69,24 @@ class BookingStatus(StrEnum):
 class Role(StrEnum):
     """Niveles de acceso.
 
-    CLIENTE  reserva y cancela sus propios turnos.
-    NIVEL_1  operador: ve todos los turnos, configura aeroplantas, horarios,
-             cortes y exporta. No toca usuarios.
-    NIVEL_2  administrador: todo lo del nivel 1 + alta, nivel y bloqueo de usuarios.
+    CLIENTE    reserva y cancela sus propios turnos.
+    OPERADOR   planta: ve solo turnos PROGRAMADOS asignados a él; marca
+               ABASTECIDO / AUSENTE. Sin admin/coord/config.
+    NIVEL_1    coordinación: tablero completo, aeroplantas, horarios, cortes
+               y exporta. No toca usuarios.
+    NIVEL_2    administrador: todo lo del nivel 1 + alta, nivel y bloqueo de usuarios.
     """
 
     CLIENTE = "cliente"
+    OPERADOR = "operador"
     NIVEL_1 = "nivel1"
     NIVEL_2 = "nivel2"
 
 
 ROLE_LABELS = {
     Role.CLIENTE: "Cliente",
-    Role.NIVEL_1: "Nivel 1 — Operador",
+    Role.OPERADOR: "Operador",
+    Role.NIVEL_1: "Nivel 1 — Coordinación",
     Role.NIVEL_2: "Nivel 2 — Administrador",
 }
 
@@ -120,8 +124,13 @@ class User(Base):
 
     @property
     def is_admin(self) -> bool:
-        """Puede entrar al panel (cualquiera de los dos niveles)."""
+        """Puede entrar a /admin y /coord (nivel 1 o 2). Operador NO es admin."""
         return self.role in (Role.NIVEL_1, Role.NIVEL_2)
+
+    @property
+    def is_operador(self) -> bool:
+        """Login de planta: panel /operador únicamente."""
+        return self.role == Role.OPERADOR
 
     @property
     def can_manage_users(self) -> bool:

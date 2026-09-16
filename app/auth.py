@@ -97,6 +97,27 @@ def require_user_manager(user: User | None = Depends(get_current_user)) -> User:
     return user
 
 
+def require_operador(user: User | None = Depends(get_current_user)) -> User:
+    """Panel de planta: solo rol operador."""
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Iniciá sesión.")
+    if not user.is_operador:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tu cuenta no tiene permisos de operador de planta.",
+        )
+    return user
+
+
+def post_login_path(user: User, next_path: str = "/") -> str:
+    """Destino post-login. Si next es genérico, operadores van a su panel."""
+    if next_path and next_path not in ("/", ""):
+        return next_path
+    if user.is_operador:
+        return "/operador"
+    return next_path or "/"
+
+
 # ============================================================
 # Alta / actualización de usuarios
 # ============================================================

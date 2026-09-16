@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+{% block title %}Operador{% endblock %}
+
+{% block head %}
+<style>
+  .op-wrap { max-width: 900px; }
+  .op-filters { display: flex; flex-wrap: wrap; gap: .75rem 1rem; align-items: flex-end; margin-bottom: 1.2rem; }
+  .op-filters .field { margin: 0; min-width: 160px; }
+  .chip--programado { background: #EEF3FA; color: var(--navy-800); }
+  .chip--jet { background: #1C1C1C; color: #fff; }
+  .chip--avgas { background: #C0392B; color: #fff; }
+  .chip--primera { background: var(--danger-bg); color: var(--danger); }
+  .op-row {
+    display: grid; gap: .55rem 1rem; align-items: center;
+    grid-template-columns: 72px minmax(110px, 1.1fr) minmax(90px, 1fr) auto minmax(100px, .9fr) auto;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: .9rem 1rem; margin-bottom: .65rem; box-shadow: var(--shadow-sm);
+  }
+  @media (max-width: 800px) {
+    .op-row { grid-template-columns: 1fr 1fr; }
+    .op-row__actions { grid-column: 1 / -1; }
+  }
+  .op-row__time { font-family: var(--font-head); font-weight: 700; font-size: 1.15rem; color: var(--navy-800); }
+  .op-row__mat { font-family: ui-monospace, monospace; font-weight: 700; font-size: 1.05rem; }
+  .op-row__meta { color: var(--muted); font-size: .88rem; }
+  .op-row__actions { display: flex; flex-wrap: wrap; gap: .35rem; justify-content: flex-end; }
+  .op-check { display: flex; flex-direction: column; gap: .45rem; margin: .8rem 0; }
+  .op-check label { display: flex; gap: .5rem; align-items: flex-start; font-size: .9rem; font-weight: 500; }
+  .dialog--wide { width: min(560px, calc(100vw - 2rem)); }
+  .toast {
+    position: fixed; bottom: 1.2rem; right: 1.2rem; z-index: 80;
+    background: var(--navy-800); color: #fff; padding: .75rem 1.1rem;
+    border-radius: var(--radius-pill); box-shadow: var(--shadow-lg); font-size: .9rem;
+    opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  .toast.is-on { opacity: 1; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="op-wrap" id="op-app" data-today="{{ today }}">
+  <div class="panel-head">
+    <div>
+      <h1>Mis turnos del día</h1>
+      <p class="muted" style="margin:0">Solo PROGRAMADOS asignados a vos — {{ user.role_label }}</p>
+    </div>
+  </div>
+
+  <div class="op-filters panel" style="padding:1rem 1.2rem">
+    <div class="field">
+      <label for="f-date">Fecha</label>
+      <input type="date" id="f-date" value="{{ today }}" />
+    </div>
+    <div class="field">
+      <button type="button" class="btn btn--outline btn--sm" id="btn-reload">Actualizar</button>
+    </div>
+  </div>
+
+  <div id="op-list"></div>
+  <div class="empty" id="op-empty" hidden>
+    No tenés turnos programados para esta fecha.
+  </div>
+</div>
+
+<dialog class="dialog dialog--wide" id="dlg-detalle">
+  <form method="dialog" class="dialog__close-form"><button class="dialog__close" aria-label="Cerrar">×</button></form>
+  <h2>Detalle del turno</h2>
+  <div id="dlg-detalle-body"></div>
+  <div class="dialog__actions" id="dlg-detalle-actions"></div>
+</dialog>
+
+<dialog class="dialog" id="dlg-motivo">
+  <form method="dialog" class="dialog__close-form"><button class="dialog__close" aria-label="Cerrar">×</button></form>
+  <h2 id="dlg-motivo-title">Motivo (opcional)</h2>
+  <div class="field">
+    <label for="motivo-text">Motivo</label>
+    <textarea id="motivo-text" rows="3" maxlength="300" placeholder="Opcional"></textarea>
+  </div>
+  <div class="dialog__actions">
+    <button type="button" class="btn btn--outline" id="motivo-cancel">Cancelar</button>
+    <button type="button" class="btn btn--accent" id="motivo-submit">Confirmar</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const app = $('op-app');
+  let bookings = [];
+  let ausenteId = null;
+
+  function toast(msg) {
+    const el = $('toast');
+    el.textContent = msg;
+    el.classList.add('is-on');
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove('is-on'), 2800);
+  }
+
+  function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, (c) => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+  }
+
+  function fuelChip(fuel) {
+    const f = (fuel || '').toUpperCase();
+    if (f.includes('JET')) return '<span class="chip chip--jet">JET A-1</span>';
+    if (f.includes('AVGAS') || f.includes('100LL')) return '<span class="chip chip--avgas">AVGAS 100LL</span>';
+    return fuel ? `<span class="chip">${escapeHtml(fuel)}</span>` : '';
+  }
+
+  async function api(path, opts = {}) {
+    const res = await fetch(path, {
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      ...opts,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || 'Error de red');
+    return data;
+  }
+
+  async function load() {
+    const day = $('f-date').value || app.dataset.today;
+    const data = await api(`/operador/board?date=${encodeURIComponent(day)}`);
+    bookings = data.bookings || [];
+    render();
+  }
+
+  function render() {
+    const list = $('op-list');
+    const empty = $('op-empty');
+    if (!bookings.length) {
+      list.innerHTML = '';
+      empty.hidden = false;
+      return;
+    }
+    empty.hidden = true;
+    list.innerHTML = bookings.map((b) => {
+      const locked = b.badge_primera_carga && !b.combustible_reconfirmado_en_persona;
+      return `
+        <article class="op-row" data-id="${b.id}">
+          <div class="op-row__time">${escapeHtml(b.hora)}</div>
+          <div>
+            <div class="op-row__mat">${escapeHtml(b.aircraft || '—')}</div>
+            <div class="op-row__meta">${escapeHtml(b.aircraft_model || '')}</div>
+          </div>
+          <div>
+            ${fuelChip(b.combustible_declarado)}
+            ${b.badge_primera_carga ? '<span class="chip chip--primera">Primera carga</span>' : ''}
+          </div>
+          <div class="op-row__meta">${b.liters != null ? escapeHtml(String(b.liters)) + ' L' : '—'}</div>
+          <div class="op-row__meta">${escapeHtml(b.abastecedora || '—')}<br/><span class="chip chip--programado">PROGRAMADO</span></div>
+          <div class="op-row__actions">
+            <button type="button" class="btn btn--sm btn--outline" data-act="detalle" data-id="${b.id}">Detalle</button>
+            <button type="button" class="btn btn--sm ${locked ? 'is-disabled' : ''}" data-act="abastecer" data-id="${b.id}" ${locked ? 'disabled title="Primero reconfirmá el combustible en persona."' : ''}>Abastecido</button>
+            <button type="button" class="btn btn--sm btn--outline" data-act="ausente" data-id="${b.id}">Ausente</button>
+          </div>
+        </article>`;
+    }).join('');
+  }
+
+  function openDetalle(id) {
+    const b = bookings.find((x) => x.id === id);
+    if (!b) return;
+    const body = $('dlg-detalle-body');
+    const needs = b.badge_primera_carga;
+    body.innerHTML = `
+      <p><strong>${escapeHtml(b.hora)}</strong> · ${escapeHtml(b.aircraft || '—')} · ${escapeHtml(b.agenda_name || '')}</p>
+      <p>Combustible: ${escapeHtml(b.combustible_declarado || '—')} · Litros: ${b.liters != null ? escapeHtml(String(b.liters)) : '—'}</p>
+      <p>Abastecedora: ${escapeHtml(b.abastecedora || '—')}</p>
+      ${b.notes ? `<p class="muted">Notas: ${escapeHtml(b.notes)}</p>` : ''}
+      ${needs ? `
+        <div class="op-check">
+          <strong>Reconfirmación de combustible (obligatoria)</strong>
+          <label><input type="checkbox" id="ck1" ${b.reconfirm_pregunte_en_persona ? 'checked' : ''}/> Pregunté en persona qué combustible precisa</label>
+          <label><input type="checkbox" id="ck2" ${b.reconfirm_coincide_declarado ? 'checked' : ''}/> Coincide con el declarado: ${escapeHtml(b.combustible_declarado || '—')}</label>
+          <label><input type="checkbox" id="ck3" ${b.combustible_reconfirmado_en_persona ? 'checked' : ''}/> Combustible reconfirmado en persona</label>
+        </div>
+        <button type="button" class="btn btn--sm btn--outline" id="btn-save-reconfirm">Guardar reconfirmación</button>
+      ` : ''}`;
+    $('dlg-detalle-actions').innerHTML = `
+      <button type="button" class="btn btn--outline" id="dlg-close">Cerrar</button>`;
+    $('dlg-detalle').showModal();
+    $('dlg-close').onclick = () => $('dlg-detalle').close();
+    const saveBtn = $('btn-save-reconfirm');
+    if (saveBtn) {
+      saveBtn.onclick = async () => {
+        try {
+          await api(`/operador/bookings/${b.id}/reconfirmar`, {
+            method: 'POST',
+            body: JSON.stringify({
+              reconfirm_pregunte_en_persona: $('ck1').checked,
+              reconfirm_coincide_declarado: $('ck2').checked,
+              combustible_reconfirmado_en_persona: $('ck3').checked,
+            }),
+          });
+          toast('Reconfirmación guardada');
+          $('dlg-detalle').close();
+          await load();
+        } catch (e) { toast(e.message); }
+      };
+    }
+  }
+
+  $('op-list').addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('[data-act]');
+    if (!btn) return;
+    const id = Number(btn.dataset.id);
+    const act = btn.dataset.act;
+    if (act === 'detalle') return openDetalle(id);
+    if (act === 'ausente') {
+      ausenteId = id;
+      $('motivo-text').value = '';
+      $('dlg-motivo').showModal();
+      return;
+    }
+    if (act === 'abastecer') {
+      try {
+        const data = await api(`/operador/bookings/${id}/abastecer`, { method: 'POST', body: '{}' });
+        toast(data.message || 'Abastecido');
+        await load();
+      } catch (e) { toast(e.message); }
+    }
+  });
+
+  $('motivo-cancel').onclick = () => { ausenteId = null; $('dlg-motivo').close(); };
+  $('motivo-submit').onclick = async () => {
+    if (!ausenteId) return;
+    try {
+      const data = await api(`/operador/bookings/${ausenteId}/ausente`, {
+        method: 'POST',
+        body: JSON.stringify({ motivo: $('motivo-text').value || '' }),
+      });
+      toast(data.message || 'Ausente');
+      ausenteId = null;
+      $('dlg-motivo').close();
+      await load();
+    } catch (e) { toast(e.message); }
+  };
+
+  $('f-date').addEventListener('change', () => load().catch((e) => toast(e.message)));
+  $('btn-reload').addEventListener('click', () => load().catch((e) => toast(e.message)));
+  load().catch((e) => toast(e.message));
+})();
+</script>
+{% endblock %}

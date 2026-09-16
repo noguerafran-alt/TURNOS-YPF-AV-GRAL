@@ -146,7 +146,7 @@ def coord_panel(
     ).all()
     operadores = db.scalars(
         select(User)
-        .where(User.role.in_([Role.NIVEL_1, Role.NIVEL_2]), User.is_blocked.is_(False))
+        .where(User.role.in_([Role.OPERADOR, Role.NIVEL_1, Role.NIVEL_2]), User.is_blocked.is_(False))
         .order_by(User.name, User.email)
     ).all()
     abastecedoras = db.scalars(
@@ -379,7 +379,7 @@ def _asignar(db: Session, booking: Booking, body: AsignarBody, admin: User) -> B
     if ab is None or not ab.activo:
         raise HTTPException(status_code=404, detail="Abastecedora inexistente.")
     op = db.get(User, body.operador_user_id)
-    if op is None or op.role not in (Role.NIVEL_1, Role.NIVEL_2) or op.is_blocked:
+    if op is None or op.role not in (Role.OPERADOR, Role.NIVEL_1, Role.NIVEL_2) or op.is_blocked:
         raise HTTPException(status_code=404, detail="Operador inválido.")
 
     fuel = booking.combustible_declarado or (booking.agenda.product if booking.agenda else "")

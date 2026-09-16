@@ -25,7 +25,7 @@ from app.templating import templates
 
 router = APIRouter(prefix="/admin/usuarios", tags=["admin-usuarios"])
 
-VALID_ROLES = {Role.CLIENTE.value, Role.NIVEL_1.value, Role.NIVEL_2.value}
+VALID_ROLES = {Role.CLIENTE.value, Role.OPERADOR.value, Role.NIVEL_1.value, Role.NIVEL_2.value}
 
 
 def _back(message: str = "", error: str = "") -> RedirectResponse:
@@ -83,7 +83,7 @@ def list_users(
             "users": users,
             "upcoming": counts,
             "role_labels": ROLE_LABELS,
-            "roles": [Role.CLIENTE, Role.NIVEL_1, Role.NIVEL_2],
+            "roles": [Role.CLIENTE, Role.OPERADOR, Role.NIVEL_1, Role.NIVEL_2],
             "user": manager,
             "q": q or "",
             "ok": ok,
@@ -208,7 +208,7 @@ def user_detail(
             "user": manager,
             "now": now,
             "role_labels": ROLE_LABELS,
-            "roles": [Role.CLIENTE, Role.NIVEL_1, Role.NIVEL_2],
+            "roles": [Role.CLIENTE, Role.OPERADOR, Role.NIVEL_1, Role.NIVEL_2],
             "recent": now - timedelta(days=30),
         },
     )
