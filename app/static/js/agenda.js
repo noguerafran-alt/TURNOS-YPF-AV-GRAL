@@ -47,9 +47,52 @@
       slotLabel.textContent = button.dataset.label;
       hideError();
       bookForm.reset();
+      resetAircraftPick();
       bookDialog.showModal();
     });
   });
+
+  /* ---------- Prefill desde Mis Aeronaves ---------- */
+  const aircraftPick = document.getElementById('aircraft_pick');
+  const fuelHint = document.getElementById('aircraftFuelHint');
+
+  function resetAircraftPick() {
+    if (aircraftPick) aircraftPick.value = '';
+    if (fuelHint) {
+      fuelHint.hidden = true;
+      fuelHint.textContent = '';
+    }
+  }
+
+  function applyAircraftPick() {
+    if (!aircraftPick || !bookForm) return;
+    const opt = aircraftPick.selectedOptions[0];
+    if (!opt || !opt.value) {
+      if (fuelHint) {
+        fuelHint.hidden = true;
+        fuelHint.textContent = '';
+      }
+      return;
+    }
+    const matricula = opt.dataset.matricula || '';
+    const modelo = opt.dataset.modelo || '';
+    const combustible = opt.dataset.combustible || '';
+    if (matricula) bookForm.aircraft.value = matricula;
+    if (modelo) bookForm.aircraft_model.value = modelo;
+    if (fuelHint) {
+      if (combustible) {
+        fuelHint.textContent = 'Combustible de tu lista: ' + combustible + ' (se confirma con el listado al reservar).';
+        fuelHint.hidden = false;
+      } else {
+        fuelHint.textContent = 'Sin combustible en tu lista: si es primera carga, el operador lo reconfirmará.';
+        fuelHint.hidden = false;
+      }
+    }
+  }
+
+  if (aircraftPick) {
+    aircraftPick.addEventListener('change', applyAircraftPick);
+  }
 
   /* ---------- Envío de la reserva ---------- */
   function showError(message) {
