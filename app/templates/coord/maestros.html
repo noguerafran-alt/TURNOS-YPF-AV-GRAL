@@ -1,0 +1,711 @@
+{% extends "base.html" %}
+{% block title %}Maestros{% endblock %}
+
+{% block head %}
+<style>
+  .mae-wrap { max-width: 1200px; }
+  .mae-tabs { display:flex; flex-wrap:wrap; gap:.5rem; margin:1rem 0 1.2rem; }
+  .mae-tab {
+    display:inline-flex; align-items:center; gap:.4rem;
+    padding:.55rem 1rem; border:1.5px solid var(--border); border-radius:var(--radius-sm);
+    background:#fff; color:var(--navy-800); font:inherit; font-weight:600; font-size:.9rem; cursor:pointer;
+  }
+  .mae-tab:hover { border-color:var(--navy-600); }
+  .mae-tab.is-active { background:var(--navy-800); color:#fff; border-color:var(--navy-800); }
+  .mae-toolbar { display:flex; flex-wrap:wrap; gap:.6rem; align-items:flex-end; margin-bottom:1rem; }
+  .mae-toolbar .field { margin:0; min-width:140px; }
+  .mae-toolbar .field--grow { flex:1; min-width:160px; }
+  .chip--jet { background:#1C1C1C; color:#fff; font-weight:700; letter-spacing:.02em; }
+  .chip--avgas { background:#C0392B; color:#fff; font-weight:700; letter-spacing:.02em; }
+  .chip--warn { background:var(--warn-bg); color:var(--warn); }
+  .chip--ok { background:var(--ok-bg); color:var(--ok); }
+  .table--mae td { vertical-align:middle; }
+  .table--mae .table__actions { flex-direction:column; align-items:stretch; min-width:110px; }
+  .table--mae .table__actions .btn { width:100%; justify-content:center; }
+  .notice--info {
+    background:#EEF3FA; border:1px solid var(--navy-600); color:var(--navy-900);
+    padding:.75rem 1rem; border-radius:var(--radius-sm); font-size:.88rem; margin-bottom:1rem;
+  }
+  .dialog--wide { width:min(560px, calc(100vw - 2rem)); }
+  .toast {
+    position:fixed; bottom:1.2rem; right:1.2rem; z-index:80;
+    background:var(--navy-800); color:#fff; padding:.75rem 1.1rem;
+    border-radius:var(--radius-pill); box-shadow:var(--shadow-lg); font-size:.9rem;
+    opacity:0; pointer-events:none; transition:opacity .2s;
+  }
+  .toast.is-on { opacity:1; }
+  .mae-panel[hidden] { display:none !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mae-wrap" id="mae-app"
+     data-can-manage="{{ '1' if can_manage_users else '0' }}"
+     data-hangares='{{ hangares | tojson }}'
+     data-roles='{{ roles | tojson }}'
+     data-role-labels='{{ role_labels | tojson }}'>
+  <div class="panel-head">
+    <div>
+      <h1>Maestros</h1>
+      <p class="muted" style="margin:.2rem 0 0;max-width:62ch">
+        El grado de cada matrícula es el dato crítico: bloquea todas las validaciones aguas abajo.
+        Coordinador y Admin pueden editarlo (con confirmación).
+      </p>
+    </div>
+    <div class="field" style="margin:0;min-width:200px">
+      <label for="f-agenda">Planta / Agenda</label>
+      <select id="f-agenda">
+        <option value="">Todas / global</option>
+        {% for a in agendas %}
+          <option value="{{ a.id }}">{{ a.full_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <nav class="mae-tabs" role="tablist" aria-label="Maestros">
+    <button type="button" class="mae-tab is-active" data-tab="aeronaves" role="tab">✈ Aeronaves</button>
+    <button type="button" class="mae-tab" data-tab="hangares" role="tab">⌂ Hangares</button>
+    <button type="button" class="mae-tab" data-tab="abastecedoras" role="tab">⛽ Abastecedoras</button>
+    <button type="button" class="mae-tab" data-tab="operadores" role="tab">👤 Operadores</button>
+    <button type="button" class="mae-tab" data-tab="usuarios" role="tab">👥 Usuarios</button>
+  </nav>
+
+  <!-- Aeronaves -->
+  <section class="mae-panel panel" id="panel-aeronaves" role="tabpanel">
+    <div class="mae-toolbar">
+      <h2 style="margin:0;flex:1" id="ae-title">Maestro de matrículas</h2>
+      <div class="field field--grow"><label for="ae-q">Buscar</label><input type="search" id="ae-q" placeholder="Matrícula / cliente" /></div>
+      <div class="field"><label for="ae-grado">Grado</label>
+        <select id="ae-grado"><option value="">Todos</option><option>JET A-1</option><option>AVGAS 100LL</option></select>
+      </div>
+      <button type="button" class="btn btn--sm" id="ae-add">+ Aeronave</button>
+    </div>
+    <div class="notice--info">El grado de cada matrícula bloquea las validaciones aguas abajo. Coordinador y Admin pueden editarlo (con confirmación).</div>
+    <div style="overflow-x:auto">
+      <table class="table table--mae"><thead><tr>
+        <th>Matrícula</th><th>Tipo</th><th>Motor</th><th>Grado</th><th>Cliente</th><th>Hangar</th><th>Cap.</th><th></th>
+      </tr></thead><tbody id="ae-body"></tbody></table>
+    </div>
+  </section>
+
+  <!-- Hangares -->
+  <section class="mae-panel panel" id="panel-hangares" role="tabpanel" hidden>
+    <div class="mae-toolbar">
+      <h2 style="margin:0;flex:1" id="hg-title">Hangares</h2>
+      <button type="button" class="btn btn--sm" id="hg-add">+ Hangar</button>
+    </div>
+    <div class="notice--info">Eliminar borra el hangar definitivamente. Si está en uso (aeronaves) el sistema no lo borra: desactivalo.</div>
+    <table class="table table--mae"><thead><tr>
+      <th>Código</th><th>Nombre</th><th>Estado</th><th></th>
+    </tr></thead><tbody id="hg-body"></tbody></table>
+  </section>
+
+  <!-- Abastecedoras -->
+  <section class="mae-panel panel" id="panel-abastecedoras" role="tabpanel" hidden>
+    <div class="mae-toolbar">
+      <h2 style="margin:0;flex:1" id="ab-title">Abastecedoras</h2>
+      <button type="button" class="btn btn--sm" id="ab-add">+ Abastecedora</button>
+    </div>
+    <div class="notice--info">Cada abastecedora está dedicada a un único grado (práctica estándar anti-misfuelling).</div>
+    <table class="table table--mae"><thead><tr>
+      <th>ID</th><th>Nombre</th><th>Grado</th><th>Capacidad (L)</th><th>Estado</th><th></th>
+    </tr></thead><tbody id="ab-body"></tbody></table>
+  </section>
+
+  <!-- Operadores -->
+  <section class="mae-panel panel" id="panel-operadores" role="tabpanel" hidden>
+    <div class="mae-toolbar">
+      <h2 style="margin:0;flex:1" id="op-title">Operadores</h2>
+      <button type="button" class="btn btn--sm" id="op-add">+ Operador</button>
+    </div>
+    <p class="muted" style="margin-top:0">Personas asignables a turnos. No implica login salvo vínculo a user.</p>
+    <table class="table table--mae"><thead><tr>
+      <th>Nombre</th><th>Estado</th><th>User vinculado</th><th></th>
+    </tr></thead><tbody id="op-body"></tbody></table>
+  </section>
+
+  <!-- Usuarios -->
+  <section class="mae-panel panel" id="panel-usuarios" role="tabpanel" hidden>
+    <div class="mae-toolbar">
+      <h2 style="margin:0;flex:1" id="us-title">Usuarios</h2>
+      <div class="field field--grow"><label for="us-q">Buscar</label><input type="search" id="us-q" placeholder="Email / nombre" /></div>
+      {% if can_manage_users %}
+      <button type="button" class="btn btn--sm" id="us-add">+ Usuario</button>
+      {% endif %}
+    </div>
+    {% if not can_manage_users %}
+    <div class="notice--info">Vista de lectura. Solo nivel 2 puede cambiar roles, bloquear o eliminar usuarios.</div>
+    {% endif %}
+    <table class="table table--mae"><thead><tr>
+      <th>Nombre</th><th>Email</th><th>Rol</th><th>Cliente / empresa</th><th>Activo</th><th></th>
+    </tr></thead><tbody id="us-body"></tbody></table>
+  </section>
+</div>
+
+<!-- Dialogs genericos -->
+<dialog class="dialog dialog--wide" id="dlg-edit">
+  <form method="dialog" class="dialog__close-form"><button class="dialog__close" aria-label="Cerrar">×</button></form>
+  <h2 id="dlg-edit-title">Editar</h2>
+  <div id="dlg-edit-body"></div>
+  <p class="dialog__error" id="dlg-edit-err" hidden></p>
+  <div class="dialog__actions">
+    <button type="button" class="btn btn--outline" id="dlg-edit-cancel">Cancelar</button>
+    <button type="button" class="btn" id="dlg-edit-save">Guardar</button>
+  </div>
+</dialog>
+
+<dialog class="dialog dialog--wide" id="dlg-grado">
+  <form method="dialog" class="dialog__close-form"><button class="dialog__close" aria-label="Cerrar">×</button></form>
+  <h2>Cambiar grado</h2>
+  <p class="muted" id="dlg-grado-help"></p>
+  <div class="field"><label for="grado-new">Nuevo grado</label>
+    <select id="grado-new"><option>JET A-1</option><option>AVGAS 100LL</option></select>
+  </div>
+  <div class="field"><label for="grado-confirm">Confirmación escrita</label>
+    <input id="grado-confirm" autocomplete="off" placeholder="CAMBIAR GRADO …" />
+  </div>
+  <p class="dialog__error" id="dlg-grado-err" hidden></p>
+  <div class="dialog__actions">
+    <button type="button" class="btn btn--outline" id="dlg-grado-cancel">Cancelar</button>
+    <button type="button" class="btn btn--danger" id="dlg-grado-save">Confirmar cambio</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const app = document.getElementById('mae-app');
+  const canManage = app.dataset.canManage === '1';
+  let hangares = JSON.parse(app.dataset.hangares || '[]');
+  const roles = JSON.parse(app.dataset.roles || '[]');
+  const roleLabels = JSON.parse(app.dataset.roleLabels || '{}');
+  const toast = document.getElementById('toast');
+  function showToast(m) { toast.textContent = m; toast.classList.add('is-on'); setTimeout(() => toast.classList.remove('is-on'), 2800); }
+  function agendaId() { const v = document.getElementById('f-agenda').value; return v ? Number(v) : null; }
+  function gradoChip(g) {
+    if (!g) return '<span class="muted">—</span>';
+    const u = String(g).toUpperCase();
+    if (u.includes('JET')) return '<span class="chip chip--jet">JET A-1</span>';
+    if (u.includes('AVGAS') || u.includes('100LL')) return '<span class="chip chip--avgas">AVGAS 100LL</span>';
+    return '<span class="chip">' + g + '</span>';
+  }
+  async function api(url, opts) {
+    const r = await fetch(url, opts);
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(typeof data.detail === 'string' ? data.detail : (data.detail && JSON.stringify(data.detail)) || 'Error');
+    return data;
+  }
+  function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  // Tabs
+  const tabs = document.querySelectorAll('.mae-tab');
+  const panels = {
+    aeronaves: document.getElementById('panel-aeronaves'),
+    hangares: document.getElementById('panel-hangares'),
+    abastecedoras: document.getElementById('panel-abastecedoras'),
+    operadores: document.getElementById('panel-operadores'),
+    usuarios: document.getElementById('panel-usuarios'),
+  };
+  const loaders = {};
+  tabs.forEach(btn => btn.addEventListener('click', () => {
+    tabs.forEach(t => t.classList.toggle('is-active', t === btn));
+    Object.keys(panels).forEach(k => { panels[k].hidden = k !== btn.dataset.tab; });
+    if (loaders[btn.dataset.tab]) loaders[btn.dataset.tab]();
+  }));
+  document.getElementById('f-agenda').onchange = () => {
+    const active = document.querySelector('.mae-tab.is-active').dataset.tab;
+    if (loaders[active]) loaders[active]();
+  };
+
+  // ---- Dialog helpers ----
+  const dlgEdit = document.getElementById('dlg-edit');
+  const dlgEditBody = document.getElementById('dlg-edit-body');
+  const dlgEditErr = document.getElementById('dlg-edit-err');
+  let editSaveFn = null;
+  document.getElementById('dlg-edit-cancel').onclick = () => dlgEdit.close();
+  document.getElementById('dlg-edit-save').onclick = async () => {
+    dlgEditErr.hidden = true;
+    try { await editSaveFn(); dlgEdit.close(); }
+    catch (e) { dlgEditErr.textContent = e.message; dlgEditErr.hidden = false; }
+  };
+  function openEdit(title, html, saveFn) {
+    document.getElementById('dlg-edit-title').textContent = title;
+    dlgEditBody.innerHTML = html;
+    dlgEditErr.hidden = true;
+    editSaveFn = saveFn;
+    dlgEdit.showModal();
+  }
+
+  const dlgGrado = document.getElementById('dlg-grado');
+  let gradoSaveFn = null;
+  document.getElementById('dlg-grado-cancel').onclick = () => dlgGrado.close();
+  document.getElementById('dlg-grado-save').onclick = async () => {
+    const err = document.getElementById('dlg-grado-err');
+    err.hidden = true;
+    try { await gradoSaveFn(); dlgGrado.close(); }
+    catch (e) { err.textContent = e.message; err.hidden = false; }
+  };
+  function openGrado(label, current, saveFn) {
+    document.getElementById('dlg-grado-help').textContent =
+      'Escribí exactamente: CAMBIAR GRADO ' + label + ' — se cancelarán turnos activos de esa matrícula si aplica.';
+    document.getElementById('grado-new').value = (current || 'JET A-1').includes('AVGAS') ? 'AVGAS 100LL' : 'JET A-1';
+    document.getElementById('grado-confirm').value = '';
+    document.getElementById('dlg-grado-err').hidden = true;
+    gradoSaveFn = saveFn;
+    dlgGrado.showModal();
+  }
+
+  // ---- Aeronaves ----
+  async function loadAeronaves() {
+    const q = new URLSearchParams();
+    const s = document.getElementById('ae-q').value.trim();
+    const g = document.getElementById('ae-grado').value;
+    if (s) q.set('q', s);
+    if (g) q.set('grado', g);
+    q.set('limit', '300');
+    const data = await api('/coord/maestros/aeronaves?' + q);
+    document.getElementById('ae-title').textContent =
+      'Maestro de matrículas (' + data.total + ') — únicas en todo el sistema';
+    const hangarOpts = hangares.filter(h => h.activo).map(h =>
+      '<option value="' + h.id + '">' + esc(h.codigo + ' — ' + h.nombre) + '</option>'
+    ).join('');
+    const tb = document.getElementById('ae-body');
+    tb.innerHTML = (data.items || []).map(row => `
+      <tr data-id="${row.id}">
+        <td><strong>${esc(row.matricula_display)}</strong></td>
+        <td>${esc(row.tipo || 'S/D')}</td>
+        <td>${esc(row.motor || '—')}</td>
+        <td>${gradoChip(row.grado || row.combustible)}</td>
+        <td>${esc(row.cliente || '—')}</td>
+        <td>${esc(row.hangar_codigo || row.hangar || 'S/D')}</td>
+        <td>${row.capacidad_l != null ? row.capacidad_l + ' L' : '—'}</td>
+        <td class="table__actions">
+          <button type="button" class="btn btn--outline btn--sm ae-edit">Editar</button>
+          <button type="button" class="btn btn--danger btn--sm ae-grado">Cambiar grado</button>
+          <button type="button" class="btn btn--danger btn--sm ae-del">Eliminar</button>
+        </td>
+      </tr>`).join('') || '<tr><td colspan="8" class="muted">Sin resultados.</td></tr>';
+
+    tb.querySelectorAll('tr[data-id]').forEach(tr => {
+      const id = Number(tr.dataset.id);
+      const row = data.items.find(x => x.id === id);
+      tr.querySelector('.ae-edit').onclick = () => {
+        openEdit('Editar aeronave', `
+          <div class="field"><label>Matrícula</label><input id="f-mat" value="${esc(row.matricula_display)}" /></div>
+          <div class="grid-2">
+            <div class="field"><label>Tipo</label><input id="f-tipo" value="${esc(row.tipo)}" /></div>
+            <div class="field"><label>Motor</label><input id="f-motor" value="${esc(row.motor)}" /></div>
+          </div>
+          <div class="field"><label>Modelo</label><input id="f-modelo" value="${esc(row.modelo)}" /></div>
+          <div class="field"><label>Cliente</label><input id="f-cliente" value="${esc(row.cliente)}" /></div>
+          <div class="grid-2">
+            <div class="field"><label>Hangar</label><select id="f-hangar"><option value="">—</option>${hangarOpts}</select></div>
+            <div class="field"><label>Capacidad (L)</label><input type="number" id="f-cap" value="${row.capacidad_l ?? ''}" /></div>
+          </div>
+          <p class="hint">El grado se cambia con «Cambiar grado».</p>
+        `, async () => {
+          document.getElementById('f-hangar').value = row.hangar_id || '';
+          const body = {
+            matricula: document.getElementById('f-mat').value,
+            tipo: document.getElementById('f-tipo').value,
+            motor: document.getElementById('f-motor').value,
+            modelo: document.getElementById('f-modelo').value,
+            cliente: document.getElementById('f-cliente').value,
+            hangar_id: document.getElementById('f-hangar').value ? Number(document.getElementById('f-hangar').value) : null,
+            capacidad_l: document.getElementById('f-cap').value ? Number(document.getElementById('f-cap').value) : null,
+            activo: true,
+          };
+          await api('/coord/maestros/aeronaves/' + id, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+          showToast('Aeronave actualizada');
+          loadAeronaves();
+        });
+        setTimeout(() => { const sel = document.getElementById('f-hangar'); if (sel) sel.value = row.hangar_id || ''; }, 0);
+      };
+      tr.querySelector('.ae-grado').onclick = () => {
+        const label = (row.matricula_display || row.matricula).toUpperCase();
+        openGrado(label, row.combustible, async () => {
+          const body = {
+            grado: document.getElementById('grado-new').value,
+            confirmacion: document.getElementById('grado-confirm').value,
+          };
+          const res = await api('/coord/maestros/aeronaves/' + id + '/cambiar-grado', {
+            method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+          });
+          showToast(res.message || 'Grado actualizado');
+          loadAeronaves();
+        });
+      };
+      tr.querySelector('.ae-del').onclick = async () => {
+        if (!confirm('¿Eliminar ' + row.matricula_display + '?')) return;
+        try {
+          await api('/coord/maestros/aeronaves/' + id, { method:'DELETE' });
+          showToast('Eliminada');
+          loadAeronaves();
+        } catch (e) { alert(e.message); }
+      };
+    });
+  }
+  loaders.aeronaves = loadAeronaves;
+  document.getElementById('ae-q').oninput = () => { clearTimeout(window._aeT); window._aeT = setTimeout(loadAeronaves, 280); };
+  document.getElementById('ae-grado').onchange = loadAeronaves;
+  document.getElementById('ae-add').onclick = () => {
+    const hangarOpts = hangares.filter(h => h.activo).map(h =>
+      '<option value="' + h.id + '">' + esc(h.codigo + ' — ' + h.nombre) + '</option>'
+    ).join('');
+    openEdit('Nueva aeronave', `
+      <div class="field"><label>Matrícula *</label><input id="f-mat" /></div>
+      <div class="field"><label>Grado *</label><select id="f-grado"><option>JET A-1</option><option>AVGAS 100LL</option></select></div>
+      <div class="grid-2">
+        <div class="field"><label>Tipo</label><input id="f-tipo" /></div>
+        <div class="field"><label>Motor</label><input id="f-motor" /></div>
+      </div>
+      <div class="field"><label>Modelo</label><input id="f-modelo" /></div>
+      <div class="field"><label>Cliente</label><input id="f-cliente" /></div>
+      <div class="grid-2">
+        <div class="field"><label>Hangar</label><select id="f-hangar"><option value="">—</option>${hangarOpts}</select></div>
+        <div class="field"><label>Capacidad (L)</label><input type="number" id="f-cap" /></div>
+      </div>
+    `, async () => {
+      const body = {
+        matricula: document.getElementById('f-mat').value,
+        combustible: document.getElementById('f-grado').value,
+        tipo: document.getElementById('f-tipo').value,
+        motor: document.getElementById('f-motor').value,
+        modelo: document.getElementById('f-modelo').value,
+        cliente: document.getElementById('f-cliente').value,
+        hangar_id: document.getElementById('f-hangar').value ? Number(document.getElementById('f-hangar').value) : null,
+        capacidad_l: document.getElementById('f-cap').value ? Number(document.getElementById('f-cap').value) : null,
+      };
+      await api('/coord/maestros/aeronaves', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      showToast('Aeronave creada');
+      loadAeronaves();
+    });
+  };
+
+  // ---- Hangares ----
+  async function loadHangares() {
+    const q = new URLSearchParams();
+    const aid = agendaId(); if (aid) q.set('agenda_id', aid);
+    const data = await api('/coord/maestros/hangares?' + q);
+    hangares = data.items || [];
+    app.dataset.hangares = JSON.stringify(hangares);
+    document.getElementById('hg-title').textContent = 'Hangares (' + data.total + ')';
+    const tb = document.getElementById('hg-body');
+    tb.innerHTML = hangares.map(h => `
+      <tr data-id="${h.id}">
+        <td><strong>${esc(h.codigo)}</strong></td>
+        <td>${esc(h.nombre)}</td>
+        <td>${h.activo ? '<span class="chip chip--ok">Activo</span>' : '<span class="chip chip--warn">Inactivo</span>'}</td>
+        <td class="table__actions">
+          <button type="button" class="btn btn--outline btn--sm hg-edit">Editar</button>
+          <button type="button" class="btn btn--outline btn--sm hg-tog">${h.activo ? 'Desactivar' : 'Activar'}</button>
+          <button type="button" class="btn btn--danger btn--sm hg-del">Eliminar</button>
+        </td>
+      </tr>`).join('') || '<tr><td colspan="4" class="muted">Sin hangares.</td></tr>';
+    tb.querySelectorAll('tr[data-id]').forEach(tr => {
+      const id = Number(tr.dataset.id);
+      const h = hangares.find(x => x.id === id);
+      tr.querySelector('.hg-edit').onclick = () => {
+        openEdit('Editar hangar', `
+          <div class="field"><label>Código</label><input id="f-cod" value="${esc(h.codigo)}" /></div>
+          <div class="field"><label>Nombre</label><input id="f-nom" value="${esc(h.nombre)}" /></div>
+          <div class="field"><label>Capacidad</label><input type="number" id="f-cap" value="${h.capacidad ?? ''}" /></div>
+        `, async () => {
+          await api('/coord/maestros/hangares/' + id, {
+            method:'PATCH', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+              codigo: document.getElementById('f-cod').value,
+              nombre: document.getElementById('f-nom').value,
+              capacidad: document.getElementById('f-cap').value ? Number(document.getElementById('f-cap').value) : null,
+              agenda_id: h.agenda_id,
+              activo: h.activo,
+            })
+          });
+          showToast('Hangar actualizado');
+          loadHangares();
+        });
+      };
+      tr.querySelector('.hg-tog').onclick = async () => {
+        await api('/coord/maestros/hangares/' + id + '/desactivar', { method:'POST' });
+        loadHangares();
+      };
+      tr.querySelector('.hg-del').onclick = async () => {
+        if (!confirm('¿Eliminar hangar ' + h.codigo + '?')) return;
+        try { await api('/coord/maestros/hangares/' + id, { method:'DELETE' }); showToast('Eliminado'); loadHangares(); }
+        catch (e) { alert(e.message); }
+      };
+    });
+  }
+  loaders.hangares = loadHangares;
+  document.getElementById('hg-add').onclick = () => {
+    openEdit('Nuevo hangar', `
+      <div class="field"><label>Código *</label><input id="f-cod" placeholder="H15" /></div>
+      <div class="field"><label>Nombre *</label><input id="f-nom" /></div>
+      <div class="field"><label>Capacidad</label><input type="number" id="f-cap" /></div>
+    `, async () => {
+      await api('/coord/maestros/hangares', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          codigo: document.getElementById('f-cod').value,
+          nombre: document.getElementById('f-nom').value,
+          capacidad: document.getElementById('f-cap').value ? Number(document.getElementById('f-cap').value) : null,
+          agenda_id: agendaId(),
+          activo: true,
+        })
+      });
+      showToast('Hangar creado');
+      loadHangares();
+    });
+  };
+
+  // ---- Abastecedoras ----
+  async function loadAbs() {
+    const q = new URLSearchParams();
+    const aid = agendaId(); if (aid) q.set('agenda_id', aid);
+    const data = await api('/coord/maestros/abastecedoras?' + q);
+    document.getElementById('ab-title').textContent = 'Abastecedoras (' + data.total + ')';
+    const tb = document.getElementById('ab-body');
+    tb.innerHTML = (data.items||[]).map(a => `
+      <tr data-id="${a.id}">
+        <td><strong>${esc(a.codigo || a.id)}</strong></td>
+        <td>${esc(a.nombre)}</td>
+        <td>${gradoChip(a.grado)}</td>
+        <td>${a.capacidad_l != null ? a.capacidad_l : '—'}</td>
+        <td>${a.activo ? '<span class="chip chip--ok">Activa</span>' : '<span class="chip chip--warn">Fuera de servicio</span>'}</td>
+        <td class="table__actions">
+          <button type="button" class="btn btn--outline btn--sm ab-edit">Editar</button>
+          <button type="button" class="btn btn--danger btn--sm ab-grado">Cambiar grado</button>
+          <button type="button" class="btn btn--danger btn--sm ab-del">Eliminar</button>
+        </td>
+      </tr>`).join('');
+    tb.querySelectorAll('tr[data-id]').forEach(tr => {
+      const id = Number(tr.dataset.id);
+      const a = data.items.find(x => x.id === id);
+      tr.querySelector('.ab-edit').onclick = () => {
+        openEdit('Editar abastecedora', `
+          <div class="field"><label>ID / Código</label><input id="f-cod" value="${esc(a.codigo||'')}" /></div>
+          <div class="field"><label>Nombre</label><input id="f-nom" value="${esc(a.nombre)}" /></div>
+          <div class="field"><label>Capacidad (L)</label><input type="number" id="f-cap" value="${a.capacidad_l ?? ''}" /></div>
+          <div class="field field--check"><label><input type="checkbox" id="f-act" ${a.activo?'checked':''}/> Activa</label></div>
+        `, async () => {
+          await api('/coord/maestros/abastecedoras/' + id, {
+            method:'PATCH', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+              codigo: document.getElementById('f-cod').value,
+              nombre: document.getElementById('f-nom').value,
+              grado: a.grado,
+              capacidad_l: document.getElementById('f-cap').value ? Number(document.getElementById('f-cap').value) : null,
+              activo: document.getElementById('f-act').checked,
+              agenda_id: a.agenda_id,
+            })
+          });
+          showToast('Actualizada');
+          loadAbs();
+        });
+      };
+      tr.querySelector('.ab-grado').onclick = () => {
+        const label = (a.codigo || a.nombre).toUpperCase();
+        openGrado(label, a.grado, async () => {
+          const res = await api('/coord/maestros/abastecedoras/' + id + '/cambiar-grado', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+              grado: document.getElementById('grado-new').value,
+              confirmacion: document.getElementById('grado-confirm').value,
+            })
+          });
+          showToast(res.message || 'Grado actualizado');
+          loadAbs();
+        });
+      };
+      tr.querySelector('.ab-del').onclick = async () => {
+        if (!confirm('¿Eliminar ' + (a.codigo||a.nombre) + '?')) return;
+        try { await api('/coord/maestros/abastecedoras/' + id, { method:'DELETE' }); showToast('Eliminada'); loadAbs(); }
+        catch (e) { alert(e.message); }
+      };
+    });
+  }
+  loaders.abastecedoras = loadAbs;
+  document.getElementById('ab-add').onclick = () => {
+    openEdit('Nueva abastecedora', `
+      <div class="field"><label>ID *</label><input id="f-cod" placeholder="AB-04" /></div>
+      <div class="field"><label>Nombre *</label><input id="f-nom" /></div>
+      <div class="field"><label>Grado *</label><select id="f-grado"><option>JET A-1</option><option>AVGAS 100LL</option></select></div>
+      <div class="field"><label>Capacidad (L)</label><input type="number" id="f-cap" /></div>
+    `, async () => {
+      await api('/coord/maestros/abastecedoras', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          codigo: document.getElementById('f-cod').value,
+          nombre: document.getElementById('f-nom').value,
+          grado: document.getElementById('f-grado').value,
+          capacidad_l: document.getElementById('f-cap').value ? Number(document.getElementById('f-cap').value) : null,
+          agenda_id: agendaId(),
+          activo: true,
+        })
+      });
+      showToast('Creada');
+      loadAbs();
+    });
+  };
+
+  // ---- Operadores ----
+  async function loadOps() {
+    const data = await api('/coord/maestros/operadores');
+    document.getElementById('op-title').textContent = 'Operadores (' + data.total + ')';
+    const tb = document.getElementById('op-body');
+    tb.innerHTML = (data.items||[]).map(o => `
+      <tr data-id="${o.id}">
+        <td>${esc(o.nombre)}</td>
+        <td>${o.activo ? '<span class="chip chip--ok">Activo</span>' : '<span class="chip chip--warn">Inactivo</span>'}</td>
+        <td>${o.user_email ? esc(o.user_email) : '<span class="muted">—</span>'}</td>
+        <td class="table__actions">
+          <button type="button" class="btn btn--outline btn--sm op-edit">Editar</button>
+          <button type="button" class="btn btn--outline btn--sm op-tog">${o.activo?'Desactivar':'Activar'}</button>
+          <button type="button" class="btn btn--danger btn--sm op-del">Eliminar</button>
+        </td>
+      </tr>`).join('');
+    tb.querySelectorAll('tr[data-id]').forEach(tr => {
+      const id = Number(tr.dataset.id);
+      const o = data.items.find(x => x.id === id);
+      tr.querySelector('.op-edit').onclick = () => {
+        openEdit('Editar operador', `
+          <div class="field"><label>Nombre</label><input id="f-nom" value="${esc(o.nombre)}" /></div>
+          <div class="field"><label>User ID vinculado (opcional)</label><input type="number" id="f-uid" value="${o.user_id ?? ''}" placeholder="id de users" /></div>
+          <div class="field field--check"><label><input type="checkbox" id="f-act" ${o.activo?'checked':''}/> Activo</label></div>
+        `, async () => {
+          await api('/coord/maestros/operadores/' + id, {
+            method:'PATCH', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+              nombre: document.getElementById('f-nom').value,
+              user_id: document.getElementById('f-uid').value ? Number(document.getElementById('f-uid').value) : null,
+              activo: document.getElementById('f-act').checked,
+            })
+          });
+          showToast('Actualizado');
+          loadOps();
+        });
+      };
+      tr.querySelector('.op-tog').onclick = async () => { await api('/coord/maestros/operadores/' + id + '/desactivar', { method:'POST' }); loadOps(); };
+      tr.querySelector('.op-del').onclick = async () => {
+        if (!confirm('¿Eliminar operador?')) return;
+        try { await api('/coord/maestros/operadores/' + id, { method:'DELETE' }); showToast('Eliminado'); loadOps(); }
+        catch (e) { alert(e.message); }
+      };
+    });
+  }
+  loaders.operadores = loadOps;
+  document.getElementById('op-add').onclick = () => {
+    openEdit('Nuevo operador', `
+      <div class="field"><label>Nombre *</label><input id="f-nom" /></div>
+      <div class="field"><label>User ID vinculado (opcional)</label><input type="number" id="f-uid" /></div>
+    `, async () => {
+      await api('/coord/maestros/operadores', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          nombre: document.getElementById('f-nom').value,
+          user_id: document.getElementById('f-uid').value ? Number(document.getElementById('f-uid').value) : null,
+          activo: true,
+        })
+      });
+      showToast('Creado');
+      loadOps();
+    });
+  };
+
+  // ---- Usuarios ----
+  async function loadUsers() {
+    const q = new URLSearchParams();
+    const s = document.getElementById('us-q').value.trim();
+    if (s) q.set('q', s);
+    const data = await api('/coord/maestros/usuarios?' + q);
+    document.getElementById('us-title').textContent = 'Usuarios (' + data.total + ')';
+    const tb = document.getElementById('us-body');
+    tb.innerHTML = (data.items||[]).map(u => `
+      <tr data-id="${u.id}">
+        <td>${esc(u.name || '—')}</td>
+        <td>${esc(u.email)}</td>
+        <td>${esc(u.role_label || u.role)}</td>
+        <td>${esc(u.company || '—')}</td>
+        <td>${u.is_blocked ? '<span class="chip chip--warn">Bloqueado</span>' : '<span class="chip chip--ok">Activo</span>'}</td>
+        <td class="table__actions">
+          ${canManage ? `
+            <button type="button" class="btn btn--outline btn--sm us-edit">Editar</button>
+            <button type="button" class="btn btn--outline btn--sm us-tog">${u.is_blocked?'Desbloquear':'Desactivar'}</button>
+            <button type="button" class="btn btn--danger btn--sm us-del">Eliminar</button>
+          ` : '<span class="muted">Solo lectura</span>'}
+        </td>
+      </tr>`).join('');
+    if (!canManage) return;
+    tb.querySelectorAll('tr[data-id]').forEach(tr => {
+      const id = Number(tr.dataset.id);
+      const u = data.items.find(x => x.id === id);
+      tr.querySelector('.us-edit').onclick = () => {
+        const opts = roles.map(r => `<option value="${r}" ${r===u.role?'selected':''}>${esc(roleLabels[r]||r)}</option>`).join('');
+        openEdit('Editar usuario', `
+          <div class="field"><label>Email</label><input value="${esc(u.email)}" disabled class="input--readonly" /></div>
+          <div class="field"><label>Nombre</label><input id="f-name" value="${esc(u.name)}" /></div>
+          <div class="field"><label>Empresa / cliente</label><input id="f-co" value="${esc(u.company)}" /></div>
+          <div class="field"><label>Teléfono</label><input id="f-ph" value="${esc(u.phone)}" /></div>
+          <div class="field"><label>Rol</label><select id="f-role">${opts}</select></div>
+          <div class="field field--check"><label><input type="checkbox" id="f-block" ${u.is_blocked?'checked':''}/> Bloqueado</label></div>
+          ${u.google_sub ? '<p class="hint">Cuenta Google: sin password local.</p>' : ''}
+        `, async () => {
+          await api('/coord/maestros/usuarios/' + id, {
+            method:'PATCH', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+              email: u.email,
+              name: document.getElementById('f-name').value,
+              company: document.getElementById('f-co').value,
+              phone: document.getElementById('f-ph').value,
+              role: document.getElementById('f-role').value,
+              is_blocked: document.getElementById('f-block').checked,
+            })
+          });
+          showToast('Usuario actualizado');
+          loadUsers();
+        });
+      };
+      tr.querySelector('.us-tog').onclick = async () => {
+        try { await api('/coord/maestros/usuarios/' + id + '/desactivar', { method:'POST' }); loadUsers(); }
+        catch (e) { alert(e.message); }
+      };
+      tr.querySelector('.us-del').onclick = async () => {
+        if (!confirm('¿Eliminar ' + u.email + '?')) return;
+        try { await api('/coord/maestros/usuarios/' + id, { method:'DELETE' }); showToast('Eliminado'); loadUsers(); }
+        catch (e) { alert(e.message); }
+      };
+    });
+  }
+  loaders.usuarios = loadUsers;
+  document.getElementById('us-q').oninput = () => { clearTimeout(window._usT); window._usT = setTimeout(loadUsers, 280); };
+  const usAdd = document.getElementById('us-add');
+  if (usAdd) usAdd.onclick = () => {
+    const opts = roles.map(r => `<option value="${r}">${esc(roleLabels[r]||r)}</option>`).join('');
+    openEdit('Nuevo usuario', `
+      <div class="field"><label>Email *</label><input id="f-email" type="email" /></div>
+      <div class="field"><label>Nombre</label><input id="f-name" /></div>
+      <div class="field"><label>Rol</label><select id="f-role">${opts}</select></div>
+      <div class="field"><label>Empresa</label><input id="f-co" /></div>
+    `, async () => {
+      await api('/coord/maestros/usuarios', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          email: document.getElementById('f-email').value,
+          name: document.getElementById('f-name').value,
+          role: document.getElementById('f-role').value,
+          company: document.getElementById('f-co').value,
+        })
+      });
+      showToast('Usuario creado');
+      loadUsers();
+    });
+  };
+
+  loadAeronaves();
+})();
+</script>
+{% endblock %}

@@ -269,6 +269,8 @@ code { font-size: .85em; background: #EEF3F9; padding: .1em .35em; border-radius
 .chip--ok { background: var(--ok-bg); color: var(--ok); }
 .chip--cancelled { background: var(--danger-bg); color: var(--danger); }
 .chip--admin { background: var(--navy-700); color: #fff; }
+.chip--jet { background: #1C1C1C; color: #fff; font-weight: 700; letter-spacing: .02em; }
+.chip--avgas { background: #C0392B; color: #fff; font-weight: 700; letter-spacing: .02em; }
 
 /* ===== Diálogos ===== */
 .dialog {

@@ -1,0 +1,359 @@
+{% extends "base.html" %}
+{% block title %}Agenda{% endblock %}
+
+{% block head %}
+<style>
+  .cal-wrap { max-width: 1100px; }
+  .cal-head { display:flex; flex-wrap:wrap; gap:1rem; align-items:center; justify-content:space-between; margin-bottom:1rem; }
+  .cal-nav { display:flex; align-items:center; gap:.6rem; }
+  .cal-nav__label { font-family:var(--font-head); font-weight:600; color:var(--navy-800); min-width:11rem; text-align:center; text-transform:capitalize; }
+  .cal-grid {
+    display:grid; grid-template-columns:repeat(7,1fr); gap:.4rem;
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:.8rem; margin-bottom:1rem; box-shadow:var(--shadow-sm);
+  }
+  .cal-dow {
+    text-align:center; font-size:.72rem; font-weight:700; text-transform:uppercase;
+    letter-spacing:.04em; color:var(--muted); padding:.3rem 0;
+  }
+  .cal-dow.is-weekend { color:var(--ok); }
+  .cal-cell {
+    min-height:88px; border:1.5px solid var(--border); border-radius:var(--radius-sm);
+    padding:.4rem .45rem; background:#fff; cursor:pointer; text-align:left; font:inherit; color:inherit;
+    display:flex; flex-direction:column; gap:.15rem; transition:border-color .12s, background .12s;
+  }
+  .cal-cell:hover { border-color:var(--navy-600); }
+  .cal-cell.is-outside { opacity:.35; pointer-events:none; }
+  .cal-cell.is-today { border-width:2.5px; border-color:var(--navy-800); }
+  .cal-cell.is-selected { background:#EEF3FA; border-color:var(--navy-800); }
+  .cal-cell__num { font-family:var(--font-head); font-weight:700; font-size:.95rem; color:var(--text); }
+  .cal-cell.is-today .cal-cell__num { color:var(--navy-800); }
+  .cal-cell__asignados { font-size:.72rem; color:var(--ok); font-weight:600; }
+  .cal-cell__sin { font-size:.72rem; color:var(--danger); font-weight:600; }
+  .cal-cell__total { font-size:.68rem; color:var(--muted); margin-top:auto; text-align:right; }
+  .day-bar {
+    display:flex; flex-wrap:wrap; gap:.75rem 1rem; align-items:center;
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:.85rem 1rem; margin-bottom:1rem; box-shadow:var(--shadow-sm);
+  }
+  .day-bar .field { margin:0; }
+  .btn--hoy { color:var(--accent-dark); border-color:var(--accent-dark); background:transparent; }
+  .btn--hoy:hover { background:var(--accent-soft); color:var(--accent-dark); }
+  .day-cols { display:grid; gap:1rem; grid-template-columns:1fr 1fr; }
+  @media (max-width:800px) { .day-cols { grid-template-columns:1fr; } .cal-cell { min-height:70px; } }
+  .day-panel { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:1rem; box-shadow:var(--shadow-sm); }
+  .day-panel h2 { font-size:1rem; margin:0 0 .8rem; display:flex; align-items:center; gap:.45rem; }
+  .agenda-card-row {
+    border:1px solid var(--border); border-radius:var(--radius-sm); padding:.7rem .8rem; margin-bottom:.5rem;
+    display:flex; flex-wrap:wrap; gap:.4rem .8rem; align-items:center; font-size:.9rem;
+  }
+  .agenda-card-row__time { font-family:var(--font-head); font-weight:700; color:var(--navy-800); min-width:3.2rem; }
+  .agenda-card-row__mat { font-family:ui-monospace,monospace; font-weight:700; }
+  .chip--pendiente { background:var(--warn-bg); color:var(--warn); }
+  .chip--programado { background:#EEF3FA; color:var(--navy-800); }
+  .chip--jet { background:#1C1C1C; color:#fff; font-weight:700; }
+  .chip--avgas { background:#C0392B; color:#fff; font-weight:700; }
+  .chip--primera { background:var(--danger-bg); color:var(--danger); }
+  .toast { position:fixed; bottom:1.2rem; right:1.2rem; z-index:80; background:var(--navy-800); color:#fff;
+    padding:.75rem 1.1rem; border-radius:var(--radius-pill); box-shadow:var(--shadow-lg); font-size:.9rem;
+    opacity:0; pointer-events:none; transition:opacity .2s; }
+  .toast.is-on { opacity:1; }
+  .dialog--wide { width:min(560px, calc(100vw - 2rem)); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="cal-wrap" id="agenda-app"
+     data-today="{{ today }}"
+     data-operadores='{{ operadores | tojson }}'
+     data-abastecedoras='{{ abastecedoras | tojson }}'>
+  <div class="cal-head">
+    <div>
+      <h1>Agenda</h1>
+      <p class="muted" style="margin:0">Calendario operativo — {{ user.role_label }}</p>
+    </div>
+    <div class="field" style="margin:0;min-width:220px">
+      <label for="f-agenda">Planta / Agenda</label>
+      <select id="f-agenda">
+        <option value="">Todas</option>
+        {% for a in agendas %}
+          <option value="{{ a.id }}" {% if loop.first %}selected{% endif %}>{{ a.full_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="cal-head">
+    <h2 id="cal-title" style="margin:0">Calendario</h2>
+    <div class="cal-nav">
+      <button type="button" class="btn btn--outline btn--sm" id="cal-prev" aria-label="Mes anterior">‹</button>
+      <span class="cal-nav__label" id="cal-month-label"></span>
+      <button type="button" class="btn btn--outline btn--sm" id="cal-next" aria-label="Mes siguiente">›</button>
+    </div>
+  </div>
+
+  <div class="cal-grid" id="cal-grid" aria-label="Calendario mensual"></div>
+
+  <div class="day-bar">
+    <div class="field">
+      <label for="f-date">Fecha</label>
+      <input type="date" id="f-date" value="{{ today }}" />
+    </div>
+    <button type="button" class="btn btn--outline btn--sm btn--hoy" id="btn-hoy">Hoy</button>
+    <span class="muted" id="day-label" style="flex:1"></span>
+    <button type="button" class="btn btn--sm" id="btn-manual">+ Turno manual (teléfono / mostrador)</button>
+  </div>
+
+  <div class="day-cols">
+    <section class="day-panel">
+      <h2>⚠ Pendientes de asignación (<span id="cnt-pend">0</span>)</h2>
+      <div id="list-pend"></div>
+      <p class="muted" id="empty-pend" hidden>No hay pedidos pendientes.</p>
+    </section>
+    <section class="day-panel">
+      <h2>📋 Programados (<span id="cnt-prog">0</span>)</h2>
+      <div id="list-prog"></div>
+      <p class="muted" id="empty-prog" hidden>No hay turnos programados.</p>
+    </section>
+  </div>
+</div>
+
+<dialog class="dialog dialog--wide" id="dlg-manual">
+  <form method="dialog" class="dialog__close-form"><button class="dialog__close" aria-label="Cerrar">×</button></form>
+  <h2>Turno manual</h2>
+  <div class="field">
+    <label for="man-agenda">Planta / Agenda *</label>
+    <select id="man-agenda">
+      {% for a in agendas %}<option value="{{ a.id }}">{{ a.full_name }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="grid-2">
+    <div class="field"><label for="man-date">Fecha *</label><input type="date" id="man-date" /></div>
+    <div class="field"><label for="man-time">Hora *</label><input type="time" id="man-time" value="10:00" /></div>
+  </div>
+  <div class="field"><label for="man-aircraft">Matrícula *</label><input id="man-aircraft" autocomplete="off" placeholder="LV-XXX" /></div>
+  <div class="field"><label for="man-model">Modelo</label><input id="man-model" /></div>
+  <div class="field"><label for="man-fuel">Combustible</label>
+    <select id="man-fuel">
+      <option value="">(auto / agenda)</option>
+      <option>JET A-1</option>
+      <option>AVGAS 100LL</option>
+    </select>
+  </div>
+  <div class="field"><label for="man-liters">Volumen (L)</label><input type="number" id="man-liters" min="1" max="20000" /></div>
+  <div class="field"><label for="man-notes">Nota</label><textarea id="man-notes" rows="2"></textarea></div>
+  <div class="field field--check"><label><input type="checkbox" id="man-sobre" /> Sobreturno</label>
+    <p class="hint">El sobreturno no resta capacidad de la grilla ni bloquea equipos ya asignados.</p>
+  </div>
+  <p class="dialog__error" id="man-err" hidden></p>
+  <div class="dialog__actions">
+    <button type="button" class="btn btn--outline" id="man-cancel">Cancelar</button>
+    <button type="button" class="btn" id="man-submit">Crear turno</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const app = document.getElementById('agenda-app');
+  const TODAY = app.dataset.today;
+  const MES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const DOW = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const WD = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+
+  let viewY, viewM; // 1-indexed month
+  let selected = TODAY;
+  let monthDays = {};
+
+  const elAgenda = document.getElementById('f-agenda');
+  const elDate = document.getElementById('f-date');
+  const elGrid = document.getElementById('cal-grid');
+  const elMonthLabel = document.getElementById('cal-month-label');
+  const elTitle = document.getElementById('cal-title');
+  const elDayLabel = document.getElementById('day-label');
+  const toast = document.getElementById('toast');
+
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add('is-on');
+    setTimeout(() => toast.classList.remove('is-on'), 2800);
+  }
+
+  function parseISO(s) {
+    const [y,m,d] = s.split('-').map(Number);
+    return new Date(y, m-1, d);
+  }
+  function toISO(d) {
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  function agendaId() {
+    const v = elAgenda.value;
+    return v ? Number(v) : null;
+  }
+
+  async function loadMonth() {
+    const q = new URLSearchParams({ year: viewY, month: viewM });
+    const aid = agendaId();
+    if (aid) q.set('agenda_id', aid);
+    const r = await fetch('/coord/agenda/month?' + q);
+    const data = await r.json();
+    monthDays = data.days || {};
+    renderGrid();
+  }
+
+  function renderGrid() {
+    elMonthLabel.textContent = MES[viewM-1] + ' de ' + viewY;
+    elTitle.textContent = 'Calendario · ' + viewY + '-' + String(viewM).padStart(2,'0');
+    const first = new Date(viewY, viewM-1, 1);
+    const startDow = first.getDay(); // 0=Dom
+    const daysInMonth = new Date(viewY, viewM, 0).getDate();
+    const cells = [];
+    for (let i = 0; i < 7; i++) {
+      cells.push('<div class="cal-dow' + (i===0||i===6?' is-weekend':'') + '">' + DOW[i] + '</div>');
+    }
+    for (let i = 0; i < startDow; i++) cells.push('<button type="button" class="cal-cell is-outside" disabled></button>');
+    for (let d = 1; d <= daysInMonth; d++) {
+      const iso = viewY + '-' + String(viewM).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+      const c = monthDays[iso] || { asignados:0, sin_asignar:0, total:0 };
+      const isToday = iso === TODAY;
+      const isSel = iso === selected;
+      let cls = 'cal-cell';
+      if (isToday) cls += ' is-today';
+      if (isSel) cls += ' is-selected';
+      cells.push(
+        '<button type="button" class="' + cls + '" data-day="' + iso + '">' +
+          '<span class="cal-cell__num">' + d + (isToday ? ' (Hoy)' : '') + '</span>' +
+          '<span class="cal-cell__asignados">Asignados ' + c.asignados + '</span>' +
+          '<span class="cal-cell__sin">Sin asignar ' + c.sin_asignar + '</span>' +
+          '<span class="cal-cell__total">' + c.total + ' turno(s)</span>' +
+        '</button>'
+      );
+    }
+    elGrid.innerHTML = cells.join('');
+    elGrid.querySelectorAll('[data-day]').forEach(btn => {
+      btn.addEventListener('click', () => selectDay(btn.dataset.day));
+    });
+  }
+
+  function gradoChip(g) {
+    if (!g) return '';
+    const u = g.toUpperCase();
+    if (u.includes('JET')) return '<span class="chip chip--jet">JET A-1</span>';
+    if (u.includes('AVGAS') || u.includes('100LL')) return '<span class="chip chip--avgas">AVGAS 100LL</span>';
+    return '<span class="chip">' + g + '</span>';
+  }
+
+  function cardHtml(b, kind) {
+    const badge = b.badge_primera_carga ? '<span class="chip chip--primera">NUNCA ANTES CARGADO</span>' : '';
+    const status = kind === 'pend'
+      ? '<span class="chip chip--pendiente">PENDIENTE</span>'
+      : '<span class="chip chip--programado">PROGRAMADO</span>';
+    let extra = '';
+    if (kind === 'prog') {
+      extra = '<span class="muted">' + (b.abastecedora || '—') + ' · ' + (b.operador || '—') + '</span>';
+    }
+    const cta = kind === 'pend'
+      ? '<a class="btn btn--outline btn--sm" href="/coord?date=' + selected + '&agenda_id=' + (b.agenda_id||'') + '">Asignar</a>'
+      : '<a class="btn btn--outline btn--sm" href="/coord?date=' + selected + '&agenda_id=' + (b.agenda_id||'') + '">Ver</a>';
+    return '<div class="agenda-card-row">' +
+      '<span class="agenda-card-row__time">' + b.hora + '</span>' +
+      '<span class="agenda-card-row__mat">' + (b.aircraft||'—') + '</span>' +
+      gradoChip(b.combustible_declarado) +
+      '<span>' + (b.cliente||'') + '</span>' +
+      status + badge + extra + cta +
+    '</div>';
+  }
+
+  async function loadDay() {
+    const q = new URLSearchParams({ date: selected });
+    const aid = agendaId();
+    if (aid) q.set('agenda_id', aid);
+    const r = await fetch('/coord/board?' + q);
+    const data = await r.json();
+    const bookings = data.bookings || [];
+    const pend = bookings.filter(b => b.coordinacion_status === 'PENDIENTE');
+    const prog = bookings.filter(b => b.coordinacion_status === 'PROGRAMADO');
+    document.getElementById('cnt-pend').textContent = pend.length;
+    document.getElementById('cnt-prog').textContent = prog.length;
+    document.getElementById('list-pend').innerHTML = pend.map(b => cardHtml(b,'pend')).join('');
+    document.getElementById('list-prog').innerHTML = prog.map(b => cardHtml(b,'prog')).join('');
+    document.getElementById('empty-pend').hidden = pend.length > 0;
+    document.getElementById('empty-prog').hidden = prog.length > 0;
+    const d = parseISO(selected);
+    const n = pend.length + prog.length;
+    elDayLabel.textContent = WD[d.getDay()] + ' ' + d.getDate() + ' de ' + MES[d.getMonth()] + ' de ' + d.getFullYear() + ' — ' + n + ' turno(s)';
+    elDate.value = selected;
+  }
+
+  function selectDay(iso) {
+    selected = iso;
+    const d = parseISO(iso);
+    viewY = d.getFullYear();
+    viewM = d.getMonth() + 1;
+    renderGrid();
+    loadDay();
+  }
+
+  document.getElementById('cal-prev').onclick = async () => {
+    viewM--; if (viewM < 1) { viewM = 12; viewY--; }
+    await loadMonth();
+  };
+  document.getElementById('cal-next').onclick = async () => {
+    viewM++; if (viewM > 12) { viewM = 1; viewY++; }
+    await loadMonth();
+  };
+  document.getElementById('btn-hoy').onclick = () => selectDay(TODAY);
+  elDate.onchange = () => { if (elDate.value) selectDay(elDate.value); };
+  elAgenda.onchange = async () => { await loadMonth(); await loadDay(); };
+
+  // Manual turno
+  const dlg = document.getElementById('dlg-manual');
+  function openManual() {
+    document.getElementById('man-date').value = selected;
+    document.getElementById('man-agenda').value = elAgenda.value || document.getElementById('man-agenda').options[0]?.value || '';
+    document.getElementById('man-err').hidden = true;
+    dlg.showModal();
+  }
+  document.getElementById('btn-manual').onclick = openManual;
+  document.getElementById('man-cancel').onclick = () => dlg.close();
+  document.getElementById('man-submit').onclick = async () => {
+    const err = document.getElementById('man-err');
+    err.hidden = true;
+    const date = document.getElementById('man-date').value;
+    const time = document.getElementById('man-time').value;
+    if (!date || !time) { err.textContent = 'Fecha y hora obligatorias.'; err.hidden = false; return; }
+    const aircraft = document.getElementById('man-aircraft').value.trim();
+    if (!aircraft) { err.textContent = 'Matrícula obligatoria.'; err.hidden = false; return; }
+    const starts = date + 'T' + time + ':00';
+    const body = {
+      agenda_id: Number(document.getElementById('man-agenda').value),
+      starts_at: starts,
+      aircraft,
+      aircraft_model: document.getElementById('man-model').value.trim(),
+      combustible: document.getElementById('man-fuel').value || null,
+      liters: document.getElementById('man-liters').value ? Number(document.getElementById('man-liters').value) : null,
+      notes: document.getElementById('man-notes').value.trim(),
+      sobreturno: document.getElementById('man-sobre').checked,
+    };
+    const r = await fetch('/coord/bookings/manual', {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) { err.textContent = data.detail || 'No se pudo crear.'; err.hidden = false; return; }
+    dlg.close();
+    showToast(data.message || 'Turno creado');
+    selectDay(date);
+    await loadMonth();
+  };
+
+  // init
+  const t = parseISO(TODAY);
+  viewY = t.getFullYear();
+  viewM = t.getMonth() + 1;
+  loadMonth().then(loadDay);
+})();
+</script>
+{% endblock %}
