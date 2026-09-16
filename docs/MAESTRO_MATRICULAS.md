@@ -1,15 +1,26 @@
 # Maestro matrículas × combustible
 
-Fuente: `data/maestro-matriculas-combustible.xlsx` (hoja `MATRICULAS Y COMBUSTIBLE`).
+Fuente canónica: `data/maestro-aviones-version-final.xlsx` (hoja `BASE FINAL`).
+Copia sincronizada: `data/maestro-matriculas-combustible.xlsx` (hoja `BASE`).
+
+## Schema (2105 únicos)
+
+| Columna         | Uso                                      |
+|-----------------|------------------------------------------|
+| CodigoProducto  | informativo                              |
+| Combustible     | → `JET A-1` / `AVGAS 100LL`              |
+| Matricula       | as-is + normalize (clave alfanum upper)  |
+| Avion           | modelo opcional                          |
+
+Conteos esperados: **2105** total · **1699** JET A-1 · **406** AVGAS 100LL · 0 dups · 0 `#REF!`.
 
 ## Reglas
 
-- Clave: `Matricula_Validada` (fallback `Matricula`), normalizada (trim, upper, sin espacios/guiones).
-- `ProductoNombre` → grado interno: JET/AEROKEROSENE → `JET A-1`; AVGAS/100LL → `AVGAS 100LL`.
-- Preferir filas con `Estado=OK` al resolver duplicados; el resto se importa si hay matrícula + grado válidos.
+- Clave: `Matricula` normalizada (trim, upper, sin espacios/guiones).
+- `Combustible` (o legacy `ProductoNombre`) → grado interno: JET/AEROKEROSENE → `JET A-1`; AVGAS/100LL → `AVGAS 100LL`.
 - Tabla: `matriculas_combustible` (`MatriculaCombustible`): matrícula única, combustible, modelo opcional, activo.
+- **FULL REPLACE** en cada import: se borran las filas previas del maestro y se cargan las del archivo. El xlsx es la fuente de verdad; upserts runtime (turno **ABASTECIDO**) no se preservan entre reimports.
 - **Sin candado de ownership.** Mis Aeronaves es lista personal aparte.
-- Upsert de matrículas **nuevas** al maestro en operación: solo al marcar turno **ABASTECIDO** (panel coordinador). El import admin es la carga masiva inicial / refresh.
 
 ## Lookup / booking
 
@@ -19,17 +30,17 @@ Fuente: `data/maestro-matriculas-combustible.xlsx` (hoja `MATRICULAS Y COMBUSTIB
 ## Import
 
 ```bash
-# default: data/maestro-matriculas-combustible.xlsx
+# default: data/maestro-aviones-version-final.xlsx
 python -m scripts.import_maestro_matriculas
 
 # ruta / env
-python -m scripts.import_maestro_matriculas --path /ruta/al.xlsx
+python -m scripts.import_maestro_matriculas --path data/maestro-matriculas-combustible.xlsx
 MAESTRO_MATRICULAS_PATH=/ruta.xlsx python -m scripts.import_maestro_matriculas
 
-# solo conteo
+# solo conteo (no escribe)
 python -m scripts.import_maestro_matriculas --dry-run
 ```
 
-También: botón **Reimportar maestro** en `/admin` (nivel 1+).
+Idempotente: correr dos veces con el mismo archivo deja la misma tabla (2105 filas).
 
 Dependencia: `openpyxl`.
