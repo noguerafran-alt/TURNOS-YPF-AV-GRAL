@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.auth import require_admin
 from app.config import settings
 from app.database import get_db
-from app.models import Agenda, Booking, BookingStatus, Closure, ScheduleRule, User
+from app.models import Agenda, Booking, BookingStatus, Closure, MatriculaCombustible, ScheduleRule, User
 from app.slots import week_start
 from app.templating import templates
 
@@ -82,6 +82,8 @@ def dashboard(request: Request, db: Session = Depends(get_db), admin: User = Dep
     # Rango por defecto del formulario de exportación: el mes en curso
     today = datetime.now(settings.tz).date()
 
+    matriculas_count = db.scalar(select(func.count(MatriculaCombustible.id))) or 0
+
     return templates.TemplateResponse(
         request,
         "admin/dashboard.html",
@@ -92,6 +94,9 @@ def dashboard(request: Request, db: Session = Depends(get_db), admin: User = Dep
             "user": admin,
             "export_from": today.replace(day=1).isoformat(),
             "export_to": today.isoformat(),
+            "matriculas_count": matriculas_count,
+            "import_result": request.query_params.get("import"),
+            "import_msg": request.query_params.get("msg"),
         },
     )
 
@@ -440,6 +445,39 @@ def _csv_response(bookings: list[Booking], filename: str) -> StreamingResponse:
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
+
+
+
+# ============================================================
+# Maestro matrículas × combustible
+# ============================================================
+@router.post("/matriculas/import")
+def import_maestro_matriculas(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Re-importa el xlsx embebido en data/ (o MAESTRO_MATRICULAS_PATH)."""
+    from scripts.import_maestro_matriculas import import_candidates, read_candidates, resolve_path
+
+    _ = admin
+    try:
+        path = resolve_path(None)
+        candidates, read_stats = read_candidates(path)
+        result = import_candidates(candidates, dry_run=False)
+    except Exception as exc:  # noqa: BLE001 — feedback al admin
+        from urllib.parse import quote
+        return RedirectResponse(
+            f"/admin?import=error&msg={quote(str(exc)[:180])}",
+            status_code=303,
+        )
+
+    msg = (
+        f"unique={read_stats.get('unique_matriculas')} "
+        f"inserted={result['inserted']} updated={result['updated']} "
+        f"total={result['total_in_db']}"
+    )
+    from urllib.parse import quote
+    return RedirectResponse(f"/admin?import=ok&msg={quote(msg)}", status_code=303)
 
 @router.get("/turnos.csv")
 def export_all_bookings(
