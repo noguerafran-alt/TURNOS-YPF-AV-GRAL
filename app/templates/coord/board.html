@@ -28,6 +28,7 @@
   .chip--avgas { background: #C0392B; color: #fff; }
   .chip--sobreturno { background: var(--accent-soft); color: var(--warn); }
   .chip--primera { background: var(--danger-bg); color: var(--danger); }
+  .chip--otra-empresa { background: var(--warn-bg); color: var(--warn); }
 
   .coord-row {
     display: grid; gap: .6rem 1rem; align-items: center;
@@ -310,7 +311,7 @@
           ${gradoChip(b.combustible_declarado)}
         </div>
         <div class="coord-row__client">${escapeHtml(b.cliente)}${b.empresa ? '<br>'+escapeHtml(b.empresa) : ''}</div>
-        <div>${statusChip(b.coordinacion_status)} ${b.badge_primera_carga ? '<span class="chip chip--primera">NUNCA ANTES CARGADO</span>' : ''}</div>
+        <div>${statusChip(b.coordinacion_status)} ${b.badge_primera_carga ? '<span class="chip chip--primera">NUNCA ANTES CARGADO</span>' : ''}${b.matricula_otra_empresa ? '<span class="chip chip--otra-empresa">MATRÍCULA OTRA EMPRESA</span>' : ''}</div>
         <div class="coord-row__assign ${(!b.abastecedora && b.coordinacion_status==='PENDIENTE') ? 'is-missing' : ''}">
           ${b.abastecedora ? escapeHtml(b.abastecedora) + (b.operador ? ' · ' + escapeHtml(b.operador) : '') : 'Sin asignar'}
         </div>

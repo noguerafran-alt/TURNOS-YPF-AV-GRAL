@@ -4,12 +4,20 @@ from urllib.parse import urlencode, urlparse
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.orm import Session, selectinload
 
 from app.auth import get_current_user, login_user, logout_user, oauth, post_login_path, require_user, upsert_user
 from app.config import settings
 from app.database import get_db
-from app.models import User
+from app.models import (
+    Empresa,
+    InvitacionEmpresa,
+    InvitacionStatus,
+    ROLE_IN_EMPRESA_LABELS,
+    RoleInEmpresa,
+    User,
+)
 from app.templating import templates
 
 router = APIRouter(tags=["auth"])
@@ -120,10 +128,13 @@ def logout(request: Request):
 @router.get("/perfil")
 def profile_page(
     request: Request,
+    db: Session = Depends(get_db),
     user: User | None = Depends(get_current_user),
     saved: bool = False,
     error: str | None = None,
     next: str | None = None,
+    empresa_ok: str | None = None,
+    empresa_error: str | None = None,
 ):
     if user is None:
         # Se preserva next para no perder el destino (ej: la agenda donde
@@ -132,8 +143,51 @@ def profile_page(
         # internos rompen el parseo de la query string externa.
         login_next = "/perfil" + (f"?{urlencode({'next': next})}" if next else "")
         return RedirectResponse(f"/auth/login?{urlencode({'next': login_next})}", status_code=303)
+
+    # Refrescar con empresa cargada
+    user = db.scalar(
+        select(User).options(selectinload(User.empresa)).where(User.id == user.id)
+    ) or user
+
+    empresa = user.empresa
+    members: list[User] = []
+    pending: list[InvitacionEmpresa] = []
+    if empresa is not None:
+        members = list(
+            db.scalars(
+                select(User)
+                .where(User.empresa_id == empresa.id)
+                .order_by(User.role_in_empresa, User.email)
+            ).all()
+        )
+        if user.is_admin_empresa:
+            pending = list(
+                db.scalars(
+                    select(InvitacionEmpresa)
+                    .where(
+                        InvitacionEmpresa.empresa_id == empresa.id,
+                        InvitacionEmpresa.status == InvitacionStatus.PENDING,
+                    )
+                    .order_by(InvitacionEmpresa.created_at.desc())
+                ).all()
+            )
+
     return templates.TemplateResponse(
-        request, "perfil.html", {"user": user, "saved": saved, "error": error, "next": next}
+        request,
+        "perfil.html",
+        {
+            "user": user,
+            "saved": saved,
+            "error": error,
+            "next": next,
+            "empresa": empresa,
+            "members": members,
+            "pending_invites": pending,
+            "empresa_ok": empresa_ok,
+            "empresa_error": empresa_error,
+            "role_in_empresa_labels": ROLE_IN_EMPRESA_LABELS,
+            "RoleInEmpresa": RoleInEmpresa,
+        },
     )
 
 
@@ -152,6 +206,12 @@ def profile_save(
     # solo (dejaría pasar "   "), así que se valida el string ya recortado.
     phone = phone.strip()
     company = company.strip()
+
+    # Si ya está ligado a Empresa formal, el nombre de org lo fija la membresía
+    if user.empresa_id:
+        empresa = db.get(Empresa, user.empresa_id)
+        company = (empresa.nombre if empresa else user.company) or company
+
     if not phone or not company:
         params = {"error": "Completá tu teléfono y tu empresa antes de guardar"}
         if next:

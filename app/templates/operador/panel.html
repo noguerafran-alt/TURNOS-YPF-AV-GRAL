@@ -10,6 +10,7 @@
   .chip--jet { background: #1C1C1C; color: #fff; }
   .chip--avgas { background: #C0392B; color: #fff; }
   .chip--primera { background: var(--danger-bg); color: var(--danger); }
+  .chip--otra-empresa { background: var(--warn-bg); color: var(--warn); }
   .op-row {
     display: grid; gap: .55rem 1rem; align-items: center;
     grid-template-columns: 72px minmax(110px, 1.1fr) minmax(90px, 1fr) auto minmax(100px, .9fr) auto;
@@ -152,7 +153,7 @@
           </div>
           <div>
             ${fuelChip(b.combustible_declarado)}
-            ${b.badge_primera_carga ? '<span class="chip chip--primera">Primera carga</span>' : ''}
+            ${b.badge_primera_carga ? '<span class="chip chip--primera">Primera carga</span>' : ''}${b.matricula_otra_empresa ? '<span class="chip chip--otra-empresa">Otra empresa</span>' : ''}
           </div>
           <div class="op-row__meta">${b.liters != null ? escapeHtml(String(b.liters)) + ' L' : '—'}</div>
           <div class="op-row__meta">${escapeHtml(b.abastecedora || '—')}<br/><span class="chip chip--programado">PROGRAMADO</span></div>

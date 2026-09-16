@@ -54,6 +54,7 @@
   .chip--jet { background:#1C1C1C; color:#fff; font-weight:700; }
   .chip--avgas { background:#C0392B; color:#fff; font-weight:700; }
   .chip--primera { background:var(--danger-bg); color:var(--danger); }
+  .chip--otra-empresa { background:var(--warn-bg); color:var(--warn); }
   .toast { position:fixed; bottom:1.2rem; right:1.2rem; z-index:80; background:var(--navy-800); color:#fff;
     padding:.75rem 1.1rem; border-radius:var(--radius-pill); box-shadow:var(--shadow-lg); font-size:.9rem;
     opacity:0; pointer-events:none; transition:opacity .2s; }
@@ -247,7 +248,7 @@
   }
 
   function cardHtml(b, kind) {
-    const badge = b.badge_primera_carga ? '<span class="chip chip--primera">NUNCA ANTES CARGADO</span>' : '';
+    const badge = (b.badge_primera_carga ? '<span class="chip chip--primera">NUNCA ANTES CARGADO</span>' : '') + (b.matricula_otra_empresa ? '<span class="chip chip--otra-empresa">OTRA EMPRESA</span>' : '');
     const status = kind === 'pend'
       ? '<span class="chip chip--pendiente">PENDIENTE</span>'
       : '<span class="chip chip--programado">PROGRAMADO</span>';

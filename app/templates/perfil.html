@@ -7,6 +7,8 @@
 
     {% if saved %}<p class="alert alert--ok">Datos guardados.</p>{% endif %}
     {% if error %}<p class="alert alert--error">{{ error }}</p>{% endif %}
+    {% if empresa_ok %}<p class="alert alert--ok">{{ empresa_ok }}</p>{% endif %}
+    {% if empresa_error %}<p class="alert alert--error">{{ empresa_error }}</p>{% endif %}
     {% if next and not error %}
       <p class="notice">Completá tu perfil para poder reservar turnos.</p>
     {% endif %}
@@ -19,6 +21,9 @@
         <strong>{{ user.display_name }}</strong>
         <p class="muted">{{ user.email }}</p>
         {% if user.is_operador %}<span class="chip chip--admin">Operador</span>{% elif user.is_admin %}<span class="chip chip--admin">{{ user.role_label }}</span>{% endif %}
+        {% if user.is_miembro_empresa %}
+          <span class="chip chip--ok">{{ user.role_in_empresa_label }}</span>
+        {% endif %}
       </div>
     </div>
 
@@ -39,15 +44,96 @@
 
       <div class="field">
         <label for="company">Empresa / operador *</label>
-        <input type="text" id="company" name="company" value="{{ user.company }}" maxlength="160" required />
+        {% if empresa %}
+          <input type="text" id="company" name="company" value="{{ empresa.nombre }}" maxlength="160" readonly />
+          <p class="hint">Estás vinculado a la empresa formal <strong>{{ empresa.nombre }}</strong>
+            ({{ user.role_in_empresa_label }}). El nombre lo define la membresía.</p>
+        {% else %}
+          <input type="text" id="company" name="company" value="{{ user.company }}" maxlength="160" required />
+          <p class="hint">Cliente individual: texto libre. Si te invitan a una empresa, se reemplaza al aceptar.</p>
+        {% endif %}
       </div>
 
       <button type="submit" class="btn btn--accent">Guardar cambios</button>
     </form>
 
+    {% if empresa and user.is_admin_empresa %}
+      <hr style="border:0;border-top:1px solid var(--border);margin:1.4rem 0" />
+      <h2>Panel empresa</h2>
+      <p class="muted">
+        Invitá por email. Cuando la persona entre con Google usando ese mail,
+        queda dentro de <strong>{{ empresa.nombre }}</strong>.
+      </p>
+
+      <form method="post" action="/perfil/empresa/invitar" class="form-row">
+        <div class="field">
+          <label for="invite_email">Email *</label>
+          <input type="email" id="invite_email" name="email" required placeholder="persona@empresa.com" />
+        </div>
+        <div class="field">
+          <label for="invite_role">Rol</label>
+          <select id="invite_role" name="role_in_empresa">
+            <option value="usuario_empresa">Usuario empresa</option>
+            <option value="admin_empresa">Admin empresa</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn--accent">Invitar</button>
+      </form>
+
+      {% if pending_invites %}
+        <h3>Pendientes</h3>
+        <table class="table">
+          <thead><tr><th>Email</th><th>Rol</th><th></th></tr></thead>
+          <tbody>
+            {% for inv in pending_invites %}
+              <tr>
+                <td>{{ inv.email }}</td>
+                <td>{{ role_in_empresa_labels.get(inv.role_in_empresa, inv.role_in_empresa) }}</td>
+                <td class="table__actions">
+                  <form method="post" action="/perfil/empresa/invitaciones/{{ inv.id }}/cancelar">
+                    <button type="submit" class="btn btn--sm btn--outline">Cancelar</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endif %}
+
+      <h3>Miembros activos</h3>
+      {% if members %}
+        <table class="table">
+          <thead><tr><th>Usuario</th><th>Rol</th></tr></thead>
+          <tbody>
+            {% for m in members %}
+              <tr>
+                <td>
+                  <strong>{{ m.display_name }}</strong>
+                  <br /><span class="muted">{{ m.email }}</span>
+                </td>
+                <td>{{ m.role_in_empresa_label }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="muted">Todavía no hay miembros.</p>
+      {% endif %}
+    {% elif empresa %}
+      <hr style="border:0;border-top:1px solid var(--border);margin:1.4rem 0" />
+      <h2>Tu empresa</h2>
+      <p>Formás parte de <strong>{{ empresa.nombre }}</strong> como {{ user.role_in_empresa_label }}.</p>
+      {% if members %}
+        <p class="muted">{{ members|length }} miembro{{ 's' if members|length != 1 else '' }}.</p>
+      {% endif %}
+    {% endif %}
+
     <hr style="border:0;border-top:1px solid var(--border);margin:1.4rem 0" />
     <h2>Mis Aeronaves</h2>
-    <p class="muted">Guardá las matrículas que usás seguido para prellenarlas al pedir un turno.</p>
+    <p class="muted">Guardá las matrículas que usás seguido para prellenarlas al pedir un turno.
+      Son atajos personales: no limitan las matrículas válidas del maestro.
+      Podés pedir turno con matrícula de otra empresa; si el maestro tiene dueño distinto,
+      el operario ve un aviso (no es un candado).</p>
     <p><a class="btn btn--outline" href="/perfil/aeronaves">Administrar Mis Aeronaves</a></p>
   </div>
 {% endblock %}

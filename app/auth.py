@@ -159,6 +159,11 @@ def upsert_user(
 
     user.last_login_at = datetime.now(UTC)
 
+    # Invitaciones de empresa: si el email tiene pending, adjuntar al login
+    from app.empresa_service import attach_pending_invite
+
+    attach_pending_invite(db, user)
+
     db.commit()
     db.refresh(user)
     return user

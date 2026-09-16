@@ -19,6 +19,7 @@ from app.auth import get_current_user, require_user
 from app.config import settings
 from app.database import get_db, is_postgres
 from app.emails import booking_payload, send_cancellation, send_confirmation
+from app.empresa_service import flag_matricula_otra_empresa
 from app.matricula import lookup_matricula
 from app.models import Agenda, Booking, BookingStatus, CoordinacionStatus, OrigenBooking, User
 from app.slots import SlotStatus, find_slot
@@ -153,6 +154,7 @@ def create_booking(
         aircraft = payload.aircraft.strip().upper()[:40]
         lookup = lookup_matricula(db, aircraft)
         combustible = lookup.combustible or agenda.product or ""
+        otra_empresa = flag_matricula_otra_empresa(db, user=user, raw_matricula=aircraft)
 
         booking = Booking(
             agenda_id=agenda.id,
@@ -170,6 +172,7 @@ def create_booking(
             combustible_declarado=combustible,
             primera_carga=lookup.primera_carga,
             unknown_matricula=lookup.unknown_matricula,
+            matricula_otra_empresa=otra_empresa,
             sobreturno=False,
         )
         db.add(booking)

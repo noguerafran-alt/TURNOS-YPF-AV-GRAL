@@ -5,6 +5,7 @@
   <div class="panel-head">
     <h1>Panel de administración</h1>
     {% if user.can_manage_users %}
+      <a class="btn btn--outline" href="/admin/empresas">Empresas</a>
       <a class="btn btn--outline" href="/admin/usuarios">Administrar usuarios</a>
     {% endif %}
   </div>

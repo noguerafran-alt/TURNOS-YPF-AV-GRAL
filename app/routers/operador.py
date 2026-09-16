@@ -41,6 +41,7 @@ def _booking_json(b: Booking) -> dict:
         "combustible_declarado": b.combustible_declarado,
         "primera_carga": b.primera_carga,
         "unknown_matricula": b.unknown_matricula,
+        "matricula_otra_empresa": bool(getattr(b, "matricula_otra_empresa", False)),
         "badge_primera_carga": bool(b.primera_carga or b.unknown_matricula),
         "combustible_reconfirmado_en_persona": b.combustible_reconfirmado_en_persona,
         "reconfirm_pregunte_en_persona": b.reconfirm_pregunte_en_persona,
