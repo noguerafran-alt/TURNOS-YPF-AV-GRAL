@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from app.auth import get_current_user, login_user, logout_user, oauth, require_user, upsert_user
+from app.auth import get_current_user, login_user, logout_user, oauth, post_login_path, require_user, upsert_user
 from app.config import settings
 from app.database import get_db
 from app.models import User
@@ -26,10 +26,15 @@ def _safe_next(raw: str | None) -> str:
 
 
 @router.get("/auth/login")
-def login_page(request: Request, next: str | None = None, error: str | None = None):
-    user = request.session.get("user_id")
+def login_page(
+    request: Request,
+    next: str | None = None,
+    error: str | None = None,
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(request, db)
     if user:
-        return RedirectResponse(_safe_next(next), status_code=303)
+        return RedirectResponse(post_login_path(user, _safe_next(next)), status_code=303)
 
     return templates.TemplateResponse(
         request,
@@ -86,7 +91,7 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
     login_user(request, user)
 
     destination = request.session.pop("oauth_next", "/")
-    return RedirectResponse(_safe_next(destination), status_code=303)
+    return RedirectResponse(post_login_path(user, _safe_next(destination)), status_code=303)
 
 
 @router.post("/auth/dev-login")
@@ -103,7 +108,7 @@ def dev_login(
 
     user = upsert_user(db, email=email, name=name or email.split("@")[0])
     login_user(request, user)
-    return RedirectResponse(_safe_next(next), status_code=303)
+    return RedirectResponse(post_login_path(user, _safe_next(next)), status_code=303)
 
 
 @router.post("/auth/logout")

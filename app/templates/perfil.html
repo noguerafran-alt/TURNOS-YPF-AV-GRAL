@@ -18,7 +18,7 @@
       <div>
         <strong>{{ user.display_name }}</strong>
         <p class="muted">{{ user.email }}</p>
-        {% if user.is_admin %}<span class="chip chip--admin">Administrador</span>{% endif %}
+        {% if user.is_operador %}<span class="chip chip--admin">Operador</span>{% elif user.is_admin %}<span class="chip chip--admin">{{ user.role_label }}</span>{% endif %}
       </div>
     </div>
 
