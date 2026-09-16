@@ -39,6 +39,58 @@
     <p class="hint">CLI: <code>python -m scripts.import_maestro_matriculas</code></p>
   </section>
 
+  {% if user.can_manage_users %}
+  <section class="panel">
+    <h2>API de consulta (YPF)</h2>
+    <p class="muted">
+      Acceso read-only para sistemas YPF bajo <code>/external/v1</code>.
+      El token se configura y rota en <strong>Render → Environment</strong>
+      (<code>YPF_API_KEY</code> o <code>EXTERNAL_API_KEY</code>);
+      no se edita desde esta app. No hay multi-key en base de datos.
+    </p>
+
+    <p>
+      Estado de la clave:
+      {% if api_key.configured %}
+        <span class="chip chip--ok">configurada</span>
+        <span class="muted">
+          ({{ api_key.source }}{% if api_key.last4 %} · …{{ api_key.last4 }}{% endif %})
+        </span>
+      {% else %}
+        <span class="chip chip--cancelled">faltante</span>
+        <span class="muted">— sin clave, los endpoints responden 503</span>
+      {% endif %}
+    </p>
+
+    <h3 style="font-size:1rem;margin:1rem 0 .4rem;">Cómo autenticar</h3>
+    <p class="muted">Enviar en cada request (cualquiera de los dos):</p>
+    <pre class="hint" style="white-space:pre-wrap;background:#EEF3F9;padding:.75rem 1rem;border-radius:8px;overflow:auto;">X-API-Key: &lt;clave&gt;
+
+Authorization: Bearer &lt;clave&gt;</pre>
+
+    <h3 style="font-size:1rem;margin:1rem 0 .4rem;">Base URL</h3>
+    <p><code>{{ api_base }}/external/v1</code></p>
+    <p class="hint">
+      Se toma de <code>PUBLIC_URL</code> / <code>SITIO_URL</code> / <code>BASE_URL</code>
+      o de la URL de este request.
+    </p>
+
+    <h3 style="font-size:1rem;margin:1rem 0 .4rem;">Endpoints (GET)</h3>
+    <ul class="muted" style="margin:0 0 .6rem 1.1rem;line-height:1.55;">
+      <li><code>/external/v1/health</code> — chequeo autenticado</li>
+      <li><code>/external/v1/agendas</code> · <code>/agendas/{id}</code> · <code>/agendas/{id}/horarios</code></li>
+      <li><code>/external/v1/abastecedoras</code> · <code>/operadores</code></li>
+      <li><code>/external/v1/board</code> · <code>/bookings/{id}</code></li>
+      <li><code>/external/v1/matriculas/{matricula}</code></li>
+    </ul>
+    <p class="hint">
+      Documentación completa:
+      <a href="/api/docs" target="_blank" rel="noopener">OpenAPI /api/docs</a>
+      · resumen en el repo <code>docs/YPF_API.md</code>.
+    </p>
+  </section>
+  {% endif %}
+
   <section class="panel">
     <h2>Aeroplantas</h2>
     {% if agendas %}

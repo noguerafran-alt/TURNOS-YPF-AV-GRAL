@@ -1,6 +1,7 @@
 """Panel de administración: agendas, horarios, cortes y turnos reservados."""
 
 import csv
+import os
 import io
 import re
 from collections.abc import Iterator
@@ -46,6 +47,32 @@ def _parse_local(value: str) -> datetime:
     return naive.replace(tzinfo=settings.tz).astimezone(UTC)
 
 
+
+def _public_base_url(request: Request) -> str:
+    """URL pública para docs de API: PUBLIC_URL / SITIO_URL / BASE_URL / request."""
+    for key in ("PUBLIC_URL", "SITIO_URL"):
+        val = (os.getenv(key) or "").strip().rstrip("/")
+        if val:
+            return val
+    if settings.base_url:
+        return settings.base_url.rstrip("/")
+    return str(request.base_url).rstrip("/")
+
+
+def _ypf_api_key_status() -> dict:
+    """Estado del secret en env — nunca expone el valor completo."""
+    ypf = (settings.ypf_api_key or "").strip()
+    ext = (settings.external_api_key or "").strip()
+    if ypf:
+        key, source = ypf, "YPF_API_KEY"
+    elif ext:
+        key, source = ext, "EXTERNAL_API_KEY"
+    else:
+        return {"configured": False, "source": None, "last4": None}
+    last4 = key[-4:] if len(key) >= 4 else key
+    return {"configured": True, "source": source, "last4": last4}
+
+
 # ============================================================
 # Listado general
 # ============================================================
@@ -83,6 +110,8 @@ def dashboard(request: Request, db: Session = Depends(get_db), admin: User = Dep
     today = datetime.now(settings.tz).date()
 
     matriculas_count = db.scalar(select(func.count(MatriculaCombustible.id))) or 0
+    api_key = _ypf_api_key_status()
+    api_base = _public_base_url(request)
 
     return templates.TemplateResponse(
         request,
@@ -97,6 +126,8 @@ def dashboard(request: Request, db: Session = Depends(get_db), admin: User = Dep
             "matriculas_count": matriculas_count,
             "import_result": request.query_params.get("import"),
             "import_msg": request.query_params.get("msg"),
+            "api_key": api_key,
+            "api_base": api_base,
         },
     )
 

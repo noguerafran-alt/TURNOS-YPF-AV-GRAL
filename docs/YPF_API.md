@@ -94,3 +94,9 @@ Lookup stub (mismo shape que `/api/matricula/{matricula}`):
 - No modifica multi-planta, OAuth ni CRUD de agendas.
 - El health público de Render sigue en `/health` (sin API key).
 - Documentación OpenAPI interactiva: `/api/docs` (incluye estos paths).
+
+## Panel de administración
+
+Los administradores **nivel 2** ven en `/admin` la sección **API de consulta (YPF)**
+con estado de la clave (configurada/faltante, últimos 4 caracteres), base URL e
+instrucciones. El secret se rota solo en Render Environment.
