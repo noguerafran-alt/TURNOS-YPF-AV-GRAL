@@ -8,7 +8,14 @@
   </p>
   <h1 style="margin:0 0 16px;font-size:21px;color:#0B2545;">Hola {{ user_name }},</h1>
 
-  {% if by_admin %}
+  {% if reason == "cambio_grado" %}
+    <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#1C2733;">
+      Tu turno fue cancelado porque cambió el <strong>grado de combustible</strong>
+      de la aeronave <strong>{{ aircraft }}</strong>. El turno ya no es válido con el
+      nuevo grado. Lamentamos el inconveniente: podés reservar otro horario cuando
+      quieras.
+    </p>
+  {% elif by_admin %}
     <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#1C2733;">
       La aeroplanta canceló este turno. Lamentamos el inconveniente: podés reservar
       otro horario cuando quieras.
