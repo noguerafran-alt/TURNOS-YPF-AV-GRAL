@@ -441,3 +441,82 @@ fieldset.field legend { font-family: var(--font-head); font-size: .88rem; font-w
   border-color: var(--border);
 }
 #primeraCargaWarn p { color: inherit; font-size: .9rem; }
+
+/* ===== Fuel banner (código de color internacional) ===== */
+:root {
+  --fuel-avgas-bg: #C0392B;
+  --fuel-jet-bg: #1C1C1C;
+  --fuel-fg: #FFFFFF;
+  --fuel-radius: 12px;
+  --fuel-pad-y: 14px;
+  --fuel-pad-x: 16px;
+}
+
+.fuel-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: .35rem;
+  padding: var(--fuel-pad-y) var(--fuel-pad-x);
+  border-radius: var(--fuel-radius);
+  color: var(--fuel-fg);
+  margin: 0 0 1rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.fuel-banner--avgas { background: var(--fuel-avgas-bg); }
+.fuel-banner--jet { background: var(--fuel-jet-bg); }
+.fuel-banner--unknown {
+  background: transparent;
+  color: var(--navy-800);
+  border: 2px solid var(--navy-800);
+}
+
+.fuel-banner__title {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: clamp(1.15rem, 2.4vw, 1.45rem);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  line-height: 1.15;
+  color: inherit;
+}
+
+.fuel-banner__icon {
+  font-size: 1.15em;
+  line-height: 1;
+}
+
+.fuel-banner__grade { color: inherit; }
+
+.fuel-banner__sub {
+  margin: 0;
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: .78rem;
+  line-height: 1.35;
+  color: inherit;
+  opacity: .92;
+  max-width: 42rem;
+}
+
+.fuel-banner--sticky {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  margin-bottom: .85rem;
+}
+
+.fuel-banner--compact {
+  padding: .55rem .85rem;
+  margin-bottom: .55rem;
+}
+.fuel-banner--compact .fuel-banner__title { font-size: 1rem; }
+.fuel-banner--compact .fuel-banner__sub { font-size: .72rem; }
+
+.booking .fuel-banner { margin-top: .35rem; margin-bottom: .65rem; }

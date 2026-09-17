@@ -17,6 +17,11 @@
           <div class="booking__body">
             <h3>{{ booking.agenda.full_name }}</h3>
             {% if booking.agenda.location %}<p class="muted">{{ booking.agenda.location }}</p>{% endif %}
+            {% with combustible=booking.combustible_declarado or (booking.agenda.product if booking.agenda else ''),
+                 matricula=booking.aircraft, tipo=booking.aircraft_model,
+                 audience='cliente', variant='turno' %}
+              {% include 'partials/fuel_banner.html' %}
+            {% endwith %}
             <p class="booking__meta">
               {% if booking.coordinacion_status == "PROGRAMADO" %}
                 <span class="chip chip--ok">Confirmado en planta</span>
@@ -65,6 +70,11 @@
           </div>
           <div class="booking__body">
             <h3>{{ booking.agenda.full_name }}</h3>
+            {% with combustible=booking.combustible_declarado or (booking.agenda.product if booking.agenda else ''),
+                 matricula=booking.aircraft, tipo=booking.aircraft_model,
+                 audience='cliente', variant='turno' %}
+              {% include 'partials/fuel_banner.html' %}
+            {% endwith %}
             <p class="booking__meta">
               {% if booking.status == "cancelled" or booking.coordinacion_status == "CANCELADO" %}
                 <span class="chip chip--cancelled">Cancelado</span>

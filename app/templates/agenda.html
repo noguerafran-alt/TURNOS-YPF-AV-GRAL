@@ -189,6 +189,8 @@
                placeholder="Ej: AR1130" autocomplete="off" />
       </div>
 
+      <div id="fuelBannerMount" hidden></div>
+
       <div class="field">
         <label for="liters">Litros aproximados</label>
         <input type="number" id="liters" name="liters" min="1" max="{{ max_liters }}" step="1" required
@@ -254,6 +256,7 @@
 {% block scripts %}
   <script>
     window.AGENDA_SLUG = {{ agenda.slug | tojson }};
+    window.AGENDA_PRODUCT = {{ (agenda.product or "") | tojson }};
     window.IS_LOGGED_IN = {{ (user is not none) | tojson }};
     window.LOGIN_URL = {{ ("/auth/login?next=/a/" ~ agenda.slug) | tojson }};
     window.PROFILE_COMPLETE = {{
@@ -261,5 +264,6 @@
     }};
     window.PROFILE_URL = {{ ("/perfil?next=/a/" ~ agenda.slug) | tojson }};
   </script>
+  <script src="/static/js/fuel_banner.js" defer></script>
   <script src="/static/js/agenda.js" defer></script>
 {% endblock %}

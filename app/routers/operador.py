@@ -28,6 +28,7 @@ def _day_bounds_utc(day: date) -> tuple[datetime, datetime]:
 def _booking_json(b: Booking) -> dict:
     local = b.starts_at.astimezone(settings.tz)
     ab = b.abastecedora
+    user = b.user
     return {
         "id": b.id,
         "starts_at": b.starts_at.isoformat(),
@@ -46,6 +47,8 @@ def _booking_json(b: Booking) -> dict:
         "combustible_reconfirmado_en_persona": b.combustible_reconfirmado_en_persona,
         "reconfirm_pregunte_en_persona": b.reconfirm_pregunte_en_persona,
         "reconfirm_coincide_declarado": b.reconfirm_coincide_declarado,
+        "cliente": user.display_name if user else "",
+        "empresa": ((user.empresa_nombre if user else "") or (user.company if user else "") or ""),
         "agenda_id": b.agenda_id,
         "agenda_name": b.agenda.full_name if b.agenda else "",
         "abastecedora_id": b.abastecedora_id,
@@ -72,6 +75,7 @@ def _get_assigned(db: Session, booking_id: int, op: User) -> Booking:
         .options(
             selectinload(Booking.agenda),
             selectinload(Booking.abastecedora),
+            selectinload(Booking.user),
             selectinload(Booking.operador),
         )
         .where(Booking.id == booking_id)

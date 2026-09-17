@@ -133,6 +133,7 @@
     <div class="field"><label for="man-time">Hora *</label><input type="time" id="man-time" value="10:00" /></div>
   </div>
   <div class="field"><label for="man-aircraft">Matrícula *</label><input id="man-aircraft" autocomplete="off" placeholder="LV-XXX" /></div>
+  <div id="man-fuel-banner"></div>
   <div class="field"><label for="man-model">Modelo</label><input id="man-model" /></div>
   <div class="field"><label for="man-fuel">Combustible</label>
     <select id="man-fuel">
@@ -157,6 +158,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="/static/js/fuel_banner.js"></script>
 <script>
 (function () {
   const app = document.getElementById('agenda-app');
@@ -240,10 +242,11 @@
   }
 
   function gradoChip(g) {
+    if (window.FuelBanner) return window.FuelBanner.chip(g);
     if (!g) return '';
     const u = g.toUpperCase();
-    if (u.includes('JET')) return '<span class="chip chip--jet">JET A-1</span>';
-    if (u.includes('AVGAS') || u.includes('100LL')) return '<span class="chip chip--avgas">AVGAS 100LL</span>';
+    if (u.includes('JET')) return '<span class="chip chip--jet">JET</span>';
+    if (u.includes('AVGAS') || u.includes('100LL')) return '<span class="chip chip--avgas">AVGAS</span>';
     return '<span class="chip">' + g + '</span>';
   }
 
@@ -312,14 +315,56 @@
 
   // Manual turno
   const dlg = document.getElementById('dlg-manual');
+  function clearManBanner() {
+    const el = document.getElementById('man-fuel-banner');
+    if (el) el.innerHTML = '';
+  }
+  async function lookupManMatricula() {
+    const raw = (document.getElementById('man-aircraft').value || '').trim();
+    const mount = document.getElementById('man-fuel-banner');
+    if (!mount || !window.FuelBanner) return;
+    if (raw.length < 2) { clearManBanner(); return; }
+    try {
+      const r = await fetch('/api/matricula/' + encodeURIComponent(raw), { headers: { Accept: 'application/json' } });
+      const data = await r.json().catch(() => null);
+      if (!data || !data.ok) { clearManBanner(); return; }
+      const unknown = !!(data.primera_carga || data.unknown_matricula);
+      const fuelSel = document.getElementById('man-fuel');
+      let fuel = (!unknown && data.combustible) ? data.combustible : (fuelSel.value || '');
+      if (!unknown && data.combustible) {
+        fuelSel.value = data.combustible;
+      }
+      const tipo = (data.modelo || data.tipo || '').trim();
+      if (tipo && !document.getElementById('man-model').value.trim()) {
+        document.getElementById('man-model').value = tipo;
+      }
+      if (!fuel) { clearManBanner(); return; }
+      mount.innerHTML = window.FuelBanner.render({
+        combustible: fuel,
+        matricula: data.matricula || raw,
+        tipo: tipo || document.getElementById('man-model').value,
+        audience: 'staff',
+        variant: (!unknown && data.combustible) ? 'maestro' : 'turno',
+        lockedByMaestro: !unknown && !!data.combustible,
+      });
+    } catch (_) { clearManBanner(); }
+  }
   function openManual() {
     document.getElementById('man-date').value = selected;
     document.getElementById('man-agenda').value = elAgenda.value || document.getElementById('man-agenda').options[0]?.value || '';
     document.getElementById('man-err').hidden = true;
+    clearManBanner();
     dlg.showModal();
   }
   document.getElementById('btn-manual').onclick = openManual;
   document.getElementById('man-cancel').onclick = () => dlg.close();
+  let manTimer;
+  document.getElementById('man-aircraft').addEventListener('input', () => {
+    clearTimeout(manTimer);
+    manTimer = setTimeout(lookupManMatricula, 350);
+  });
+  document.getElementById('man-aircraft').addEventListener('blur', lookupManMatricula);
+  document.getElementById('man-fuel').addEventListener('change', lookupManMatricula);
   document.getElementById('man-submit').onclick = async () => {
     const err = document.getElementById('man-err');
     err.hidden = true;

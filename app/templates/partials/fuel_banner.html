@@ -1,0 +1,44 @@
+{# Banner grado combustible — código de color internacional.
+   Esperá variables en scope (usar {% with %} al incluir):
+     combustible (req)
+     matricula, tipo, cliente (opt)
+     audience: 'cliente' | 'staff' (default cliente)
+     variant: 'turno' | 'maestro' (default turno)
+     locked_by_maestro: bool
+     compact: bool → chip (listas densas)
+     sticky: bool → sticky top
+#}
+{% set _audience = audience if audience is defined else 'cliente' %}
+{% set _variant = variant if variant is defined else 'turno' %}
+{% set _locked = locked_by_maestro if locked_by_maestro is defined else false %}
+{% set _mat = matricula if matricula is defined else '' %}
+{% set _tipo = tipo if tipo is defined else '' %}
+{% set _cli = cliente if cliente is defined else '' %}
+{% set _fuel = combustible if combustible is defined else '' %}
+{% set banner = build_fuel_banner(
+     combustible=_fuel,
+     matricula=_mat,
+     tipo=_tipo,
+     cliente=_cli,
+     audience=_audience,
+     variant=_variant,
+     locked_by_maestro=_locked
+) %}
+{% if banner.show %}
+  {% if compact is defined and compact %}
+    <span class="chip {% if banner.kind == 'avgas' %}chip--avgas{% elif banner.kind == 'jet' %}chip--jet{% endif %}"
+          title="{{ banner.subline }}">{% if banner.kind == 'avgas' %}AVGAS{% elif banner.kind == 'jet' %}JET{% else %}{{ banner.label }}{% endif %}</span>
+  {% else %}
+    <div class="fuel-banner {{ banner.css_mod }}{% if sticky is defined and sticky %} fuel-banner--sticky{% endif %}"
+         role="status"
+         style="{% if banner.bg %}background:{{ banner.bg }};{% endif %}">
+      <div class="fuel-banner__title">
+        <span class="fuel-banner__icon" aria-hidden="true">⛽</span>
+        <span class="fuel-banner__grade">{{ banner.label }}</span>
+      </div>
+      {% if banner.subline %}
+        <p class="fuel-banner__sub">{{ banner.subline }}</p>
+      {% endif %}
+    </div>
+  {% endif %}
+{% endif %}
