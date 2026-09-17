@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime, time, timedelta
+import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
@@ -12,6 +13,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.auth import require_admin, require_user
 from app.config import settings
 from app.database import get_db
+from app.emails import booking_payload, send_confirmation
 from app.empresa_service import flag_matricula_otra_empresa
 from app.matricula import (
     grados_compatibles,
@@ -35,6 +37,7 @@ from app.slots import SlotStatus, find_slot
 from app.templating import templates
 
 router = APIRouter(tags=["coordinacion"])
+logger = logging.getLogger(__name__)
 
 ACTIVE_COORD = (
     CoordinacionStatus.PENDIENTE,
@@ -617,6 +620,7 @@ class ManualBody(BaseModel):
     combustible: str | None = None
     sobreturno: bool = False
     flight_number: str = Field(default="", max_length=20)
+    cliente_user_id: int | None = None
 
     @field_validator("aircraft")
     @classmethod
@@ -822,12 +826,26 @@ def cancelar_coord(
 @router.post("/coord/bookings/manual", status_code=status.HTTP_201_CREATED)
 def crear_manual(
     body: ManualBody,
+    background: BackgroundTasks,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
     agenda = db.get(Agenda, body.agenda_id)
     if agenda is None or not agenda.is_active:
         raise HTTPException(status_code=404, detail="Agenda inexistente.")
+
+    cliente: User | None = None
+    owner_id = admin.id
+    if body.cliente_user_id is not None:
+        cliente = db.get(User, body.cliente_user_id)
+        if cliente is None:
+            raise HTTPException(status_code=404, detail="Cliente inexistente.")
+        if cliente.role != Role.CLIENTE:
+            raise HTTPException(
+                status_code=400,
+                detail="cliente_user_id debe corresponder a un usuario con rol cliente.",
+            )
+        owner_id = cliente.id
 
     starts = body.starts_at
     ends = starts + timedelta(minutes=agenda.slot_minutes)
@@ -838,7 +856,7 @@ def crear_manual(
 
     if not body.sobreturno:
         with lock_agenda(db, agenda):
-            slot = find_slot(db, agenda, starts, user_id=admin.id)
+            slot = find_slot(db, agenda, starts, user_id=owner_id)
             # Staff puede elegir hora fuera de grilla: si no hay slot, igual permitir solo con sobreturno.
             # Sin sobreturno exigimos slot bookable o al menos existencia con cupo.
             if slot is None:
@@ -868,7 +886,7 @@ def crear_manual(
 
             booking = Booking(
                 agenda_id=agenda.id,
-                user_id=admin.id,
+                user_id=owner_id,
                 starts_at=starts,
                 ends_at=ends,
                 status=BookingStatus.CONFIRMED,
@@ -891,7 +909,7 @@ def crear_manual(
     else:
         booking = Booking(
             agenda_id=agenda.id,
-            user_id=admin.id,
+            user_id=owner_id,
             starts_at=starts,
             ends_at=ends,
             status=BookingStatus.CONFIRMED,
@@ -911,6 +929,14 @@ def crear_manual(
         db.add(booking)
         db.commit()
         db.refresh(booking)
+
+    if cliente is not None:
+        background.add_task(send_confirmation, booking_payload(booking, agenda, cliente))
+    else:
+        logger.info(
+            "Confirmación de email omitida: turno manual %s sin cliente_user_id (owner=admin)",
+            booking.id,
+        )
 
     booking = _get_booking(db, booking.id)
     return {"ok": True, "booking": _booking_json(booking), "message": "Turno manual creado."}
