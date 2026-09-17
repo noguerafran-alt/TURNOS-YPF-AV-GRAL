@@ -163,6 +163,10 @@ def create_booking(
         lookup = lookup_matricula(db, aircraft)
         combustible = lookup.combustible or agenda.product or ""
         otra_empresa = flag_matricula_otra_empresa(db, user=user, raw_matricula=aircraft)
+        aircraft_model = (
+            payload.aircraft_model.strip()[:60]
+            or (lookup.modelo or lookup.tipo or "")[:60]
+        )
 
         booking = Booking(
             agenda_id=agenda.id,
@@ -171,7 +175,7 @@ def create_booking(
             ends_at=slot.ends_at,
             status=BookingStatus.CONFIRMED,
             aircraft=aircraft,
-            aircraft_model=payload.aircraft_model.strip()[:60],
+            aircraft_model=aircraft_model,
             liters=payload.liters,
             flight_number=payload.flight_number.strip().upper()[:20],
             notes=payload.notes.strip()[:500],

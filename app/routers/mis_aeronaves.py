@@ -109,13 +109,15 @@ def mis_aeronaves_add(
 
     lookup = lookup_matricula(db, display)
     fuel = _canon_combustible(combustible, lookup.combustible)
+    modelo_val = (modelo or "").strip()[:60] or (lookup.modelo or lookup.tipo or "")[:60]
+    tipo_val = (tipo or "").strip()[:60] or modelo_val
 
     row = UserAircraft(
         user_id=user.id,
         matricula=key,
         matricula_display=lookup.matricula if lookup.found else display,
-        modelo=(modelo or "").strip()[:60],
-        tipo=(tipo or "").strip()[:60],
+        modelo=modelo_val,
+        tipo=tipo_val,
         combustible=fuel[:80],
     )
     db.add(row)
@@ -168,8 +170,8 @@ def mis_aeronaves_edit(
 
     row.matricula = key
     row.matricula_display = lookup.matricula if lookup.found else display
-    row.modelo = (modelo or "").strip()[:60]
-    row.tipo = (tipo or "").strip()[:60]
+    row.modelo = (modelo or "").strip()[:60] or (lookup.modelo or lookup.tipo or "")[:60]
+    row.tipo = (tipo or "").strip()[:60] or row.modelo
     row.combustible = fuel[:80]
     db.commit()
     return RedirectResponse("/perfil/aeronaves?saved=1", status_code=303)

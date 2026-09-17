@@ -58,6 +58,7 @@
   /* ---------- Prefill desde Mis Aeronaves + lookup maestro ---------- */
   const aircraftPick = document.getElementById('aircraft_pick');
   const fuelHint = document.getElementById('aircraftFuelHint');
+  const typeHint = document.getElementById('aircraftTypeHint');
   const fuelKnownBlock = document.getElementById('fuelKnownBlock');
   const combustibleDisplay = document.getElementById('combustible_display');
   const primeraCargaWarn = document.getElementById('primeraCargaWarn');
@@ -67,6 +68,10 @@
     if (fuelHint) {
       fuelHint.hidden = true;
       fuelHint.textContent = '';
+    }
+    if (typeHint) {
+      typeHint.hidden = true;
+      typeHint.textContent = '';
     }
     if (fuelKnownBlock) fuelKnownBlock.hidden = true;
     if (combustibleDisplay) combustibleDisplay.value = '';
@@ -100,8 +105,19 @@
       }
     }
 
-    if (data.modelo && bookForm && bookForm.aircraft_model && !bookForm.aircraft_model.value.trim()) {
-      bookForm.aircraft_model.value = data.modelo;
+    const tipoAvion = (data.modelo || data.tipo || '').trim();
+    if (tipoAvion && bookForm && bookForm.aircraft_model) {
+      // Maestro manda: rellenar / refrescar modelo desde Avion
+      bookForm.aircraft_model.value = tipoAvion;
+    }
+    if (typeHint) {
+      if (tipoAvion) {
+        typeHint.textContent = 'Tipo: ' + tipoAvion;
+        typeHint.hidden = false;
+      } else {
+        typeHint.hidden = true;
+        typeHint.textContent = '';
+      }
     }
   }
 

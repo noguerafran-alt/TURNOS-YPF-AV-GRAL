@@ -30,14 +30,16 @@
     <p class="muted">
       Listado global usado para autofill al pedir turno (readonly si conocida;
       aviso de primera carga si no). Hoy hay <strong>{{ matriculas_count }}</strong> matrículas.
-      Reimportar lee <code>data/maestro-matriculas-combustible.xlsx</code>
-      (o <code>MAESTRO_MATRICULAS_PATH</code>). No toca Mis Aeronaves ni ownership.
+      Reimportar hace <strong>full replace</strong> desde
+      <code>data/maestro-aviones-version-final.xlsx</code>
+      (o <code>MAESTRO_MATRICULAS_PATH</code>). Columna <code>Avion</code> → tipo/modelo.
+      No toca Mis Aeronaves ni ownership.
     </p>
     <form method="post" action="/admin/matriculas/import"
-          onsubmit="return confirm('¿Reimportar el maestro desde el xlsx del repo?');">
+          onsubmit="return confirm('¿Reimportar el maestro (full replace) desde el xlsx del repo?');">
       <button type="submit" class="btn btn--outline">Reimportar maestro</button>
     </form>
-    <p class="hint">CLI: <code>python -m scripts.import_maestro_matriculas</code></p>
+    <p class="hint">CLI: <code>python -m scripts.import_maestro_matriculas --replace</code></p>
   </section>
 
   <section class="panel">
