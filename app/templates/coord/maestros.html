@@ -280,7 +280,7 @@
     tb.innerHTML = (data.items || []).map(row => `
       <tr data-id="${row.id}">
         <td><strong>${esc(row.matricula_display)}</strong></td>
-        <td>${esc(row.tipo || 'S/D')}</td>
+        <td>${esc(row.tipo || row.modelo || 'S/D')}</td>
         <td>${esc(row.motor || '—')}</td>
         <td>${gradoChip(row.grado || row.combustible)}</td>
         <td>${esc(row.cliente || '—')}</td>
@@ -300,7 +300,7 @@
         openEdit('Editar aeronave', `
           <div class="field"><label>Matrícula</label><input id="f-mat" value="${esc(row.matricula_display)}" /></div>
           <div class="grid-2">
-            <div class="field"><label>Tipo</label><input id="f-tipo" value="${esc(row.tipo)}" /></div>
+            <div class="field"><label>Tipo</label><input id="f-tipo" value="${esc(row.tipo || row.modelo)}" /></div>
             <div class="field"><label>Motor</label><input id="f-motor" value="${esc(row.motor)}" /></div>
           </div>
           <div class="field"><label>Modelo</label><input id="f-modelo" value="${esc(row.modelo)}" /></div>

@@ -5,7 +5,8 @@ Uso:
   python -m scripts.import_maestro_matriculas --replace
   python -m scripts.import_maestro_matriculas --path /ruta/al.xlsx --replace
 
-Por defecto: data/maestro-matriculas-combustible.xlsx
+Por defecto: data/maestro-aviones-version-final.xlsx
+  (fallback: data/maestro-matriculas-combustible.xlsx)
 
 Formato FINAL (sheet BASE / BASE FINAL):
   CodigoProducto | Combustible | Matricula | Avion
@@ -29,7 +30,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-DEFAULT_PATH = ROOT / "data" / "maestro-matriculas-combustible.xlsx"
+DEFAULT_PATH = ROOT / "data" / "maestro-aviones-version-final.xlsx"
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger("import_maestro")
@@ -121,6 +122,8 @@ def read_candidates(path: Path) -> tuple[list[Candidate], dict]:
             continue
         by_key[key] = Candidate(key=key, display=display[:40], grado=grado, modelo=modelo)
         stats["rows_valid"] += 1
+        if modelo:
+            stats["with_avion"] += 1
         if grado == "JET A-1":
             stats["jet"] += 1
         elif grado == "AVGAS 100LL":
@@ -162,12 +165,14 @@ def import_candidates(
                         raw_matricula=cand.display,
                         combustible=cand.grado,
                         modelo=cand.modelo,
+                        tipo=cand.modelo or None,
                         activo=True,
                     )
             else:
                 changed = (
                     (row.combustible or "") != cand.grado
                     or (row.modelo or "") != (cand.modelo or "")
+                    or (row.tipo or "") != (cand.modelo or "")
                     or not row.activo
                     or (row.matricula_display or "") != cand.display
                 )
@@ -179,6 +184,7 @@ def import_candidates(
                             raw_matricula=cand.display,
                             combustible=cand.grado,
                             modelo=cand.modelo or None,
+                            tipo=cand.modelo or None,
                             activo=True,
                         )
         if not dry_run:
@@ -203,6 +209,10 @@ def resolve_path(cli_path: str | None) -> Path:
     path = Path(raw).expanduser()
     if not path.is_absolute():
         path = (Path.cwd() / path).resolve()
+    if not path.exists() and not cli_path and not os.environ.get("MAESTRO_MATRICULAS_PATH"):
+        alt = ROOT / "data" / "maestro-matriculas-combustible.xlsx"
+        if alt.exists():
+            path = alt
     if not path.exists():
         raise SystemExit(f"No existe el archivo: {path}")
     return path

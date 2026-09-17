@@ -104,7 +104,7 @@ Listado global `matriculas_combustible` para autofill al pedir turno.
 Detalle en [`docs/MAESTRO_MATRICULAS.md`](docs/MAESTRO_MATRICULAS.md).
 
 ```bash
-python -m scripts.import_maestro_matriculas
+python -m scripts.import_maestro_matriculas --replace
 ```
 
 ### Maestro hangares + abastecedoras + operadores (Turnera)

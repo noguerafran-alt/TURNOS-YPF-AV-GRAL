@@ -58,8 +58,12 @@ class MatriculaLookup:
     matricula: str
     combustible: str | None
     modelo: str | None = None
+    tipo: str | None = None
 
     def as_dict(self) -> dict:
+        # modelo/tipo: Avion del maestro (UI Maestros TIPO + booking aircraft_model)
+        modelo = self.modelo or self.tipo
+        tipo = self.tipo or self.modelo
         return {
             "ok": True,
             "found": self.found,
@@ -67,7 +71,8 @@ class MatriculaLookup:
             "unknown_matricula": self.unknown_matricula,
             "matricula": self.matricula,
             "combustible": self.combustible,
-            "modelo": self.modelo,
+            "modelo": modelo,
+            "tipo": tipo,
         }
 
 
@@ -82,6 +87,7 @@ def lookup_matricula(db: Session, raw: str) -> MatriculaLookup:
             matricula=display,
             combustible=None,
             modelo=None,
+            tipo=None,
         )
 
     row = db.scalar(
@@ -98,10 +104,12 @@ def lookup_matricula(db: Session, raw: str) -> MatriculaLookup:
             matricula=display or key,
             combustible=None,
             modelo=None,
+            tipo=None,
         )
 
     fuel = (row.combustible or "").strip() or None
     modelo = (getattr(row, "modelo", None) or "").strip() or None
+    tipo = (getattr(row, "tipo", None) or "").strip() or None
     if fuel is None:
         # Soft-B: conocida pero sin combustible
         return MatriculaLookup(
@@ -111,6 +119,7 @@ def lookup_matricula(db: Session, raw: str) -> MatriculaLookup:
             matricula=row.matricula_display or display or key,
             combustible=None,
             modelo=modelo,
+            tipo=tipo,
         )
 
     return MatriculaLookup(
@@ -120,6 +129,7 @@ def lookup_matricula(db: Session, raw: str) -> MatriculaLookup:
         matricula=row.matricula_display or display or key,
         combustible=fuel,
         modelo=modelo,
+        tipo=tipo,
     )
 
 
@@ -129,6 +139,7 @@ def upsert_matricula_combustible(
     raw_matricula: str,
     combustible: str,
     modelo: str | None = None,
+    tipo: str | None = None,
     activo: bool = True,
 ) -> MatriculaCombustible:
     """Upsert al listado. En operación normal: SOLO al pasar a ABASTECIDO."""
@@ -138,13 +149,23 @@ def upsert_matricula_combustible(
     if not key or not fuel:
         raise ValueError("Matrícula y combustible son obligatorios para el upsert.")
 
+    modelo_val = (modelo or "").strip()[:80] if modelo is not None else None
+    # Avion del maestro → tipo (columna Maestros TIPO) y modelo
+    if tipo is not None and tipo.strip():
+        tipo_val = tipo.strip()[:60]
+    elif modelo_val:
+        tipo_val = modelo_val[:60]
+    else:
+        tipo_val = None
+
     row = db.scalar(select(MatriculaCombustible).where(MatriculaCombustible.matricula == key))
     if row is None:
         row = MatriculaCombustible(
             matricula=key,
             matricula_display=display,
             combustible=fuel,
-            modelo=(modelo or "").strip()[:80],
+            modelo=modelo_val or "",
+            tipo=tipo_val or "",
             activo=activo,
         )
         db.add(row)
@@ -152,6 +173,8 @@ def upsert_matricula_combustible(
         row.matricula_display = display or row.matricula_display
         row.combustible = fuel
         row.activo = activo
-        if modelo is not None and modelo.strip():
-            row.modelo = modelo.strip()[:80]
+        if modelo_val:
+            row.modelo = modelo_val
+        if tipo_val:
+            row.tipo = tipo_val
     return row

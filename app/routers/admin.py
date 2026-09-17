@@ -463,7 +463,7 @@ def import_maestro_matriculas(
     try:
         path = resolve_path(None)
         candidates, read_stats = read_candidates(path)
-        result = import_candidates(candidates, dry_run=False)
+        result = import_candidates(candidates, dry_run=False, replace=True)
     except Exception as exc:  # noqa: BLE001 — feedback al admin
         from urllib.parse import quote
         return RedirectResponse(
@@ -474,7 +474,8 @@ def import_maestro_matriculas(
     msg = (
         f"unique={read_stats.get('unique_matriculas')} "
         f"inserted={result['inserted']} updated={result['updated']} "
-        f"total={result['total_in_db']}"
+        f"deleted={result['deleted_before_load']} "
+        f"total={result['total_in_db']} replace=1"
     )
     from urllib.parse import quote
     return RedirectResponse(f"/admin?import=ok&msg={quote(msg)}", status_code=303)

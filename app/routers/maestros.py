@@ -52,14 +52,17 @@ def _grado_badge(grado: str | None) -> str:
 
 def _aeronave_json(row: MatriculaCombustible) -> dict:
     h = row.hangar
+    modelo = row.modelo or ""
+    tipo = row.tipo or ""
     return {
         "id": row.id,
         "matricula": row.matricula,
         "matricula_display": row.matricula_display or row.matricula,
         "combustible": row.combustible,
         "grado": _grado_badge(row.combustible),
-        "modelo": row.modelo or "",
-        "tipo": row.tipo or "",
+        "modelo": modelo,
+        # Maestros columna TIPO: Avion del master (tipo o modelo)
+        "tipo": tipo or modelo,
         "motor": row.motor or "",
         "cliente": row.cliente or "",
         "hangar_id": row.hangar_id,
@@ -295,6 +298,7 @@ def list_aeronaves(
                 MatriculaCombustible.matricula_display.ilike(like),
                 MatriculaCombustible.cliente.ilike(like),
                 MatriculaCombustible.modelo.ilike(like),
+                MatriculaCombustible.tipo.ilike(like),
             )
         )
     if grado:
@@ -309,6 +313,7 @@ def list_aeronaves(
                 MatriculaCombustible.matricula_display.ilike(like),
                 MatriculaCombustible.cliente.ilike(like),
                 MatriculaCombustible.modelo.ilike(like),
+                MatriculaCombustible.tipo.ilike(like),
             )
         )
     if grado:
