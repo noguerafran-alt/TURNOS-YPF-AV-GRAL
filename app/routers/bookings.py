@@ -20,7 +20,7 @@ from app.config import settings
 from app.database import get_db, is_postgres
 from app.emails import booking_payload, send_cancellation, send_confirmation
 from app.empresa_service import flag_matricula_otra_empresa
-from app.matricula import lookup_matricula
+from app.matricula import lookup_matricula, normalize_matricula
 from app.models import Agenda, Booking, BookingStatus, CoordinacionStatus, OrigenBooking, User
 from app.slots import SlotStatus, find_slot
 
@@ -54,12 +54,14 @@ class BookingRequest(BaseModel):
     # queda opcional porque no todas las aeronaves que cargan combustible acá
     # vuelan un tramo comercial con código asignado.
     aircraft: str = Field(min_length=1, max_length=40)
+    # Confirmación positiva: el cliente debe reescribir la matrícula.
+    aircraft_confirm: str = Field(min_length=1, max_length=40)
     aircraft_model: str = Field(min_length=1, max_length=60)
     liters: int = Field(ge=1, le=20_000)
     flight_number: str = Field(default="", max_length=20)
     notes: str = Field(default="", max_length=500)
 
-    @field_validator("aircraft", "aircraft_model")
+    @field_validator("aircraft", "aircraft_confirm", "aircraft_model")
     @classmethod
     def not_blank(cls, value: str) -> str:
         value = value.strip()
@@ -152,6 +154,12 @@ def create_booking(
             )
 
         aircraft = payload.aircraft.strip().upper()[:40]
+        confirm = payload.aircraft_confirm.strip().upper()[:40]
+        if normalize_matricula(aircraft) != normalize_matricula(confirm):
+            raise HTTPException(
+                status_code=400,
+                detail="La matrícula de confirmación no coincide. Reescribila exactamente para confirmar.",
+            )
         lookup = lookup_matricula(db, aircraft)
         combustible = lookup.combustible or agenda.product or ""
         otra_empresa = flag_matricula_otra_empresa(db, user=user, raw_matricula=aircraft)

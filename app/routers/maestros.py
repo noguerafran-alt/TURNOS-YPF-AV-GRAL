@@ -9,13 +9,14 @@ from __future__ import annotations
 import unicodedata
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.auth import require_admin
 from app.database import get_db
+from app.emails import booking_payload, send_cancellation
 from app.matricula import normalize_grado, normalize_matricula
 from app.models import (
     ROLE_LABELS,
@@ -123,17 +124,23 @@ def _user_json(u: User) -> dict:
     }
 
 
-def _cancel_active_turnos_matricula(db: Session, matricula_key: str) -> int:
-    """Cancela turnos activos (PENDIENTE/PROGRAMADO) de esa matrícula al cambiar grado."""
+def _cancel_active_turnos_matricula(db: Session, matricula_key: str) -> list[Booking]:
+    """Cancela turnos activos (PENDIENTE/PROGRAMADO) de esa matrícula al cambiar grado.
+
+    Devuelve la lista de bookings cancelados (con agenda/user cargados) para
+    poder armar los emails de aviso sin otra query.
+    """
     like_keys = {matricula_key, matricula_key.upper()}
     rows = db.scalars(
-        select(Booking).where(
+        select(Booking)
+        .options(selectinload(Booking.agenda), selectinload(Booking.user))
+        .where(
             Booking.status == BookingStatus.CONFIRMED,
             Booking.coordinacion_status.in_(ACTIVE_TURNOS),
         )
     ).all()
     now = datetime.now(UTC)
-    n = 0
+    cancelled: list[Booking] = []
     for b in rows:
         key = normalize_matricula(b.aircraft or "")
         if key not in like_keys and key != matricula_key:
@@ -144,8 +151,8 @@ def _cancel_active_turnos_matricula(db: Session, matricula_key: str) -> int:
         b.status = BookingStatus.CANCELLED
         b.cancelled_at = now
         b.cancelled_by_admin = True
-        n += 1
-    return n
+        cancelled.append(b)
+    return cancelled
 
 
 def _count_level2(db: Session, *, excluding: int | None = None) -> int:
@@ -374,6 +381,7 @@ def patch_aeronave(
 def cambiar_grado_aeronave(
     row_id: int,
     body: CambiarGradoBody,
+    background: BackgroundTasks,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
@@ -392,8 +400,20 @@ def cambiar_grado_aeronave(
     if not new_g:
         raise HTTPException(status_code=400, detail="Grado inválido.")
     row.combustible = new_g
-    cancelled = _cancel_active_turnos_matricula(db, row.matricula)
+    cancelled_bookings = _cancel_active_turnos_matricula(db, row.matricula)
+    # Armar payloads antes del commit/cierre de sesión (ORM detached después).
+    mail_payloads = []
+    for b in cancelled_bookings:
+        if b.agenda is None or b.user is None:
+            continue
+        mail_payloads.append(booking_payload(b, b.agenda, b.user))
     db.commit()
+    # Emails en background: falla graceful (log) y NUNCA bloquea el cambio de grado.
+    for data in mail_payloads:
+        background.add_task(
+            send_cancellation, data, by_admin=True, reason="cambio_grado"
+        )
+    cancelled = len(cancelled_bookings)
     row = db.scalar(
         select(MatriculaCombustible)
         .options(selectinload(MatriculaCombustible.hangar))

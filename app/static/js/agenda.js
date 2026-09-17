@@ -187,10 +187,19 @@
 
       // required + min/max en el HTML ya bloquean el submit si falta algo:
       // el navegador ni dispara este listener si el form no es válido.
+      const aircraft = bookForm.aircraft.value.trim();
+      const aircraftConfirm = bookForm.aircraft_confirm.value.trim();
+      const norm = (v) => (v || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (norm(aircraft) !== norm(aircraftConfirm)) {
+        showError('La matrícula de confirmación no coincide. Reescribila exactamente.');
+        return;
+      }
+
       const payload = {
         slug: window.AGENDA_SLUG,
         starts_at: selectedSlot,
-        aircraft: bookForm.aircraft.value.trim(),
+        aircraft: aircraft,
+        aircraft_confirm: aircraftConfirm,
         aircraft_model: bookForm.aircraft_model.value.trim(),
         flight_number: bookForm.flight_number.value.trim(),
         liters: Number(bookForm.liters.value.trim()),

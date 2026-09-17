@@ -142,11 +142,27 @@ def send_confirmation(data: dict[str, Any]) -> bool:
     return send_email(data["email"], subject, _render("confirmation.html", data))
 
 
-def send_cancellation(data: dict[str, Any], *, by_admin: bool = False) -> bool:
-    prefix = "Turno cancelado por la aeroplanta" if by_admin else "Turno cancelado"
+def send_cancellation(
+    data: dict[str, Any],
+    *,
+    by_admin: bool = False,
+    reason: str | None = None,
+) -> bool:
+    """reason opcionales: 'cambio_grado' (cancela por cambio de grado de matrícula)."""
+    if reason == "cambio_grado":
+        prefix = "Turno cancelado por cambio de grado"
+    elif by_admin:
+        prefix = "Turno cancelado por la aeroplanta"
+    else:
+        prefix = "Turno cancelado"
     subject = f"{prefix}: {data['agenda_name']} — {data['date_long']}, {data['time']}"
     return send_email(
-        data["email"], subject, _render("cancellation.html", {**data, "by_admin": by_admin})
+        data["email"],
+        subject,
+        _render(
+            "cancellation.html",
+            {**data, "by_admin": by_admin, "reason": reason},
+        ),
     )
 
 
