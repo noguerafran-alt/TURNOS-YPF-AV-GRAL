@@ -56,7 +56,7 @@
       <table class="table">
         <thead>
           <tr>
-            <th>Usuario</th><th>Contacto</th><th>Turnos próximos</th>
+            <th>Usuario</th><th>Contacto</th><th>Último ingreso</th><th>Turnos próximos</th>
             <th>Nivel</th><th>Estado</th><th></th>
           </tr>
         </thead>
@@ -68,14 +68,8 @@
                 <br /><span class="muted">{{ u.email }}</span>
                 {% if u.company %}<br /><span class="muted">{{ u.company }}</span>{% endif %}
               </td>
-              <td>
-                {{ u.phone or "—" }}
-                {% if u.last_login_at %}
-                  <br /><span class="muted">Último ingreso: {{ u.last_login_at|datetime }}</span>
-                {% else %}
-                  <br /><span class="muted">Nunca ingresó</span>
-                {% endif %}
-              </td>
+              <td>{{ u.phone or "—" }}</td>
+              <td>{% if u.last_login_at %}{{ u.last_login_at|datetime_short }}{% else %}Nunca{% endif %}</td>
               <td>{{ upcoming.get(u.id, 0) }}</td>
               <td>
                 <form method="post" action="/admin/usuarios/{{ u.id }}/nivel" class="inline-form">
