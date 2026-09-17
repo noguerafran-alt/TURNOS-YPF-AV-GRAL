@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.auth import require_admin
 from app.config import settings
 from app.database import get_db
-from app.models import Agenda, Booking, BookingStatus, Closure, MatriculaCombustible, ScheduleRule, User
+from app.models import Agenda, Booking, BookingStatus, Closure, ScheduleRule, User
 from app.slots import week_start
 from app.templating import templates
 
@@ -82,8 +82,6 @@ def dashboard(request: Request, db: Session = Depends(get_db), admin: User = Dep
     # Rango por defecto del formulario de exportación: el mes en curso
     today = datetime.now(settings.tz).date()
 
-    matriculas_count = db.scalar(select(func.count(MatriculaCombustible.id))) or 0
-
     return templates.TemplateResponse(
         request,
         "admin/dashboard.html",
@@ -94,9 +92,6 @@ def dashboard(request: Request, db: Session = Depends(get_db), admin: User = Dep
             "user": admin,
             "export_from": today.replace(day=1).isoformat(),
             "export_to": today.isoformat(),
-            "matriculas_count": matriculas_count,
-            "import_result": request.query_params.get("import"),
-            "import_msg": request.query_params.get("msg"),
         },
     )
 
