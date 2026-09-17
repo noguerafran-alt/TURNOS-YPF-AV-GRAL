@@ -50,14 +50,32 @@
             ({{ user.role_in_empresa_label }}). El nombre lo define la membresía.</p>
         {% else %}
           <input type="text" id="company" name="company" value="{{ user.company }}" maxlength="160" required />
-          <p class="hint">Cliente individual: texto libre. Si te invitan a una empresa, se reemplaza al aceptar.</p>
+          <p class="hint">Cliente individual: texto libre. O creá tu empresa formal más abajo (self-serve). Si te invitan a una ya existente, se reemplaza al aceptar con Google.</p>
         {% endif %}
       </div>
 
       <button type="submit" class="btn btn--accent">Guardar cambios</button>
     </form>
 
-    {% if empresa and user.is_admin_empresa %}
+    {% if not empresa %}
+      <hr style="border:0;border-top:1px solid var(--border);margin:1.4rem 0" />
+      <h2>Crear mi empresa</h2>
+      <p class="muted">
+        Si operás como organización, creá tu empresa acá. Quedás como
+        <strong>admin empresa</strong> y después podés invitar a tu equipo por email
+        (entran con Google). El panel de staff <code>/admin/empresas</code> sigue
+        disponible para nivel 2.
+      </p>
+      <form method="post" action="/perfil/empresa/crear" class="form-row">
+        <div class="field field--grow">
+          <label for="empresa_nombre">Nombre de la empresa *</label>
+          <input type="text" id="empresa_nombre" name="nombre" required maxlength="160"
+                 placeholder="Ej. Aviación San Fernando S.A."
+                 value="{{ user.company or '' }}" />
+        </div>
+        <button type="submit" class="btn btn--accent">Crear mi empresa</button>
+      </form>
+    {% elif empresa and user.is_admin_empresa %}
       <hr style="border:0;border-top:1px solid var(--border);margin:1.4rem 0" />
       <h2>Panel empresa</h2>
       <p class="muted">

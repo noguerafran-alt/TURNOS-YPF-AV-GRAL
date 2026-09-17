@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.auth import require_user, require_user_manager
 from app.database import get_db
-from app.empresa_service import create_empresa, invite_member
+from app.empresa_service import create_empresa, create_empresa_selfserve, invite_member
 from app.models import (
     Empresa,
     InvitacionEmpresa,
@@ -102,6 +102,28 @@ def admin_crear_empresa(
 
     return _admin_redirect(
         message=f"Empresa «{empresa.nombre}» creada. Admin: {admin.email}"
+    )
+
+
+
+# ============================================================
+# Cliente self-serve — crear mi empresa
+# ============================================================
+@router.post("/perfil/empresa/crear")
+def perfil_crear_empresa(
+    nombre: str = Form(...),
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Cualquier usuario autenticado sin empresa_id puede crear la suya."""
+    try:
+        empresa = create_empresa_selfserve(db, user=user, nombre=nombre)
+        db.commit()
+    except ValueError as exc:
+        return _perfil_redirect(error=str(exc))
+
+    return _perfil_redirect(
+        message=f"Empresa «{empresa.nombre}» creada. Ya podés invitar por email."
     )
 
 

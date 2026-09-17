@@ -195,6 +195,44 @@ def maestros_page(
 
 
 # ============================================================
+# Re-sembrar maestros (hangares + abastecedoras + operadores)
+# ============================================================
+@router.post("/coord/maestros/reseed")
+def reseed_maestros(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Nivel 1+: corre el seed idempotente desde data/*.csv y devuelve counts."""
+    _ = admin
+    from scripts.seed_flota_operadores import run_seed
+
+    # Usa la misma sesión del request; run_seed hace commit.
+    result = run_seed(db=db, skip_migrate=True, dry_run=False)
+    counts = result["counts"]
+    hg = result["hangares"] or {"inserted": 0, "updated": 0, "unchanged": 0, "total_csv": 0}
+    ab = result["abastecedoras"]
+    op = result["operadores"]
+    message = (
+        f"Re-sembrado: Hangares {counts['hangares']} "
+        f"(+{hg['inserted']}~{hg['updated']}), "
+        f"Abastecedoras {counts['abastecedoras']} "
+        f"(+{ab['inserted']}~{ab['updated']}), "
+        f"Operadores {counts['operadores']} "
+        f"(+{op['inserted']}~{op['updated']})."
+    )
+    return {
+        "ok": True,
+        "message": message,
+        "counts": counts,
+        "stats": {
+            "hangares": result["hangares"],
+            "abastecedoras": result["abastecedoras"],
+            "operadores": result["operadores"],
+        },
+    }
+
+
+# ============================================================
 # Aeronaves
 # ============================================================
 class AeronaveBody(BaseModel):

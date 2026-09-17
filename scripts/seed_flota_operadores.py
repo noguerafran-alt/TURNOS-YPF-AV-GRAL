@@ -280,6 +280,139 @@ def seed_operadores(db, path: Path, *, dry_run: bool) -> dict:
     }
 
 
+def run_seed(
+    *,
+    dry_run: bool = False,
+    skip_migrate: bool = True,
+    skip_hangares: bool = False,
+    hangares_path: Path | None = None,
+    abastecedoras_path: Path | None = None,
+    operadores_path: Path | None = None,
+    db=None,
+) -> dict:
+    """Seed idempotente hangares + abastecedoras + operadores.
+
+    Retorna dict con stats por maestro y counts finales en DB.
+    Puede recibir una Session abierta (no la cierra) o abrir/cerrar la suya.
+    """
+    hangares_path = hangares_path or DEFAULT_HG
+    abastecedoras_path = abastecedoras_path or DEFAULT_AB
+    operadores_path = operadores_path or DEFAULT_OP
+
+    if not abastecedoras_path.exists():
+        raise FileNotFoundError(f"No existe: {abastecedoras_path}")
+    if not operadores_path.exists():
+        raise FileNotFoundError(f"No existe: {operadores_path}")
+
+    skip_hg = skip_hangares
+    if not skip_hg and not hangares_path.exists():
+        log.warning(
+            "No existe %s — se omite seed de hangares.",
+            hangares_path,
+        )
+        skip_hg = True
+
+    if not skip_migrate:
+        from app.migrate import upgrade_database
+
+        upgrade_database()
+
+    from sqlalchemy import func, select
+
+    from app.database import SessionLocal
+    from app.models import Abastecedora, Hangar, Operador
+
+    own_session = db is None
+    if own_session:
+        db = SessionLocal()
+
+    hg_stats = None
+    try:
+        if not skip_hg:
+            hg_stats = seed_hangares(db, hangares_path, dry_run=dry_run)
+        ab_stats = seed_abastecedoras(db, abastecedoras_path, dry_run=dry_run)
+        op_stats = seed_operadores(db, operadores_path, dry_run=dry_run)
+        if not dry_run:
+            db.commit()
+        counts = {
+            "hangares": db.scalar(select(func.count()).select_from(Hangar)) or 0,
+            "abastecedoras": db.scalar(select(func.count()).select_from(Abastecedora)) or 0,
+            "operadores": db.scalar(select(func.count()).select_from(Operador)) or 0,
+        }
+    except Exception:
+        if own_session:
+            db.rollback()
+        raise
+    finally:
+        if own_session:
+            db.close()
+
+    result = {
+        "hangares": hg_stats,
+        "abastecedoras": ab_stats,
+        "operadores": op_stats,
+        "counts": counts,
+        "dry_run": dry_run,
+        "skipped_hangares": skip_hg,
+    }
+    if hg_stats is not None:
+        log.info("Hangares: %s", hg_stats)
+    else:
+        log.info("Hangares: omitted")
+    log.info("Abastecedoras: %s", ab_stats)
+    log.info("Operadores: %s", op_stats)
+    return result
+
+
+def maestro_counts(db=None) -> dict[str, int]:
+    """Conteos actuales de tablas maestro."""
+    from sqlalchemy import func, select
+
+    from app.database import SessionLocal
+    from app.models import Abastecedora, Hangar, Operador
+
+    own = db is None
+    if own:
+        db = SessionLocal()
+    try:
+        return {
+            "hangares": db.scalar(select(func.count()).select_from(Hangar)) or 0,
+            "abastecedoras": db.scalar(select(func.count()).select_from(Abastecedora)) or 0,
+            "operadores": db.scalar(select(func.count()).select_from(Operador)) or 0,
+        }
+    finally:
+        if own:
+            db.close()
+
+
+def maybe_autorun_seed(*, force: bool = False) -> dict | None:
+    """En arranque: si alguna tabla maestro está vacía (o force), corre el seed.
+
+    Idempotente. No rompe el boot si falla (caller debe try/except).
+    """
+    counts = maestro_counts()
+    empty = any(v == 0 for v in counts.values())
+    if not force and not empty:
+        log.info(
+            "Seed maestros omitido (ya hay datos): hangares=%s abastecedoras=%s operadores=%s",
+            counts["hangares"],
+            counts["abastecedoras"],
+            counts["operadores"],
+        )
+        return None
+
+    reason = "force" if force else f"empty tables {counts}"
+    log.info("Seed maestros auto-run (%s)…", reason)
+    result = run_seed(skip_migrate=True, dry_run=False)
+    log.info(
+        "Seed maestros listo: hangares=%s abastecedoras=%s operadores=%s",
+        result["counts"]["hangares"],
+        result["counts"]["abastecedoras"],
+        result["counts"]["operadores"],
+    )
+    return result
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Seed hangares + abastecedoras + operadores Turnera"
@@ -296,70 +429,37 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    if not args.abastecedoras.exists():
-        raise SystemExit(f"No existe: {args.abastecedoras}")
-    if not args.operadores.exists():
-        raise SystemExit(f"No existe: {args.operadores}")
-
-    hangares_path = args.hangares
-    skip_hangares = args.skip_hangares
-    if not skip_hangares and not hangares_path.exists():
-        log.warning(
-            "No existe %s — se omite seed de hangares (usar --hangares PATH o copiar CSV).",
-            hangares_path,
-        )
-        skip_hangares = True
-
-    if not args.skip_migrate:
-        from app.migrate import upgrade_database
-
-        upgrade_database()
-
-    from sqlalchemy import func, select
-
-    from app.database import SessionLocal
-    from app.models import Abastecedora, Hangar, Operador
-
-    db = SessionLocal()
-    hg_stats = None
-    try:
-        if not skip_hangares:
-            hg_stats = seed_hangares(db, hangares_path, dry_run=args.dry_run)
-        ab_stats = seed_abastecedoras(db, args.abastecedoras, dry_run=args.dry_run)
-        op_stats = seed_operadores(db, args.operadores, dry_run=args.dry_run)
-        if not args.dry_run:
-            db.commit()
-        hg_total = db.scalar(select(func.count()).select_from(Hangar))
-        ab_total = db.scalar(select(func.count()).select_from(Abastecedora))
-        op_total = db.scalar(select(func.count()).select_from(Operador))
-    finally:
-        db.close()
-
-    if hg_stats is not None:
-        log.info("Hangares: %s", hg_stats)
-    else:
-        log.info("Hangares: omitted (csv missing or --skip-hangares)")
-    log.info("Abastecedoras: %s", ab_stats)
-    log.info("Operadores: %s", op_stats)
+    result = run_seed(
+        dry_run=args.dry_run,
+        skip_migrate=args.skip_migrate,
+        skip_hangares=args.skip_hangares,
+        hangares_path=args.hangares,
+        abastecedoras_path=args.abastecedoras,
+        operadores_path=args.operadores,
+    )
+    counts = result["counts"]
+    hg_stats = result["hangares"]
+    ab_stats = result["abastecedoras"]
+    op_stats = result["operadores"]
 
     parts = []
     if hg_stats is not None:
         parts.append(
             f"hangares csv={hg_stats['total_csv']} "
             f"+{hg_stats['inserted']} ~{hg_stats['updated']} ={hg_stats['unchanged']} "
-            f"db={hg_total}"
+            f"db={counts['hangares']}"
         )
     else:
-        parts.append(f"hangares omitted db={hg_total}")
+        parts.append(f"hangares omitted db={counts['hangares']}")
     parts.append(
         f"abastecedoras csv={ab_stats['total_csv']} "
         f"+{ab_stats['inserted']} ~{ab_stats['updated']} ={ab_stats['unchanged']} "
-        f"db={ab_total}"
+        f"db={counts['abastecedoras']}"
     )
     parts.append(
         f"operadores csv={op_stats['total_csv']} "
         f"+{op_stats['inserted']} ~{op_stats['updated']} ={op_stats['unchanged']} "
-        f"linked={op_stats['linked_users']} db={op_total}"
+        f"linked={op_stats['linked_users']} db={counts['operadores']}"
     )
     print("OK " + "; ".join(parts) + f" dry_run={args.dry_run}")
     print(

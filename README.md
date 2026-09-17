@@ -112,6 +112,8 @@ python -m scripts.import_maestro_matriculas
 CSVs en `data/hangares.csv`, `data/abastecedoras.csv` y `data/operadores.csv`.
 Detalle en [`docs/MAESTRO_FLOTA_OPERADORES.md`](docs/MAESTRO_FLOTA_OPERADORES.md).
 
+En producción el seed corre solo al arrancar si alguna tabla maestro está vacía; también hay **Re-sembrar maestros** en `/coord/maestros`. Ver docs para reinicio en Render.
+
 ```bash
 python -m scripts.seed_flota_operadores
 ```

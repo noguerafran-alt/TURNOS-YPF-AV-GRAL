@@ -43,6 +43,16 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     if settings.run_migrations:
         upgrade_database()
 
+    # Maestros Turnera (hangares/abastecedoras/operadores): seed idempotente si
+    # alguna tabla está vacía. En Render el script CLI no corre solo; sin esto
+    # /coord/maestros queda en (0) tras el merge del CSV.
+    try:
+        from scripts.seed_flota_operadores import maybe_autorun_seed
+
+        maybe_autorun_seed()
+    except Exception:
+        logger.exception("Seed maestros en startup falló (app sigue arriba).")
+
     # Los recordatorios corren adentro de la app: con SQLite sobre un disco de
     # Render no se puede usar un Cron Job aparte (el disco va en un solo servicio).
     tarea = None
