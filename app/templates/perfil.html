@@ -20,9 +20,14 @@
       <div>
         <strong>{{ user.display_name }}</strong>
         <p class="muted">{{ user.email }}</p>
-        {% if user.is_operador %}<span class="chip chip--admin">Operador</span>{% elif user.is_admin %}<span class="chip chip--admin">{{ user.role_label }}</span>{% endif %}
-        {% if user.is_miembro_empresa %}
-          <span class="chip chip--ok">{{ user.role_in_empresa_label }}</span>
+        {% if user.is_operador %}
+          <span class="chip chip--admin">Operador</span>
+        {% elif user.is_admin %}
+          <span class="chip chip--admin">{{ user.role_label }}</span>
+        {% elif user.is_admin_empresa %}
+          <span class="chip chip--ok">Administrás tu empresa</span>
+        {% elif user.is_miembro_empresa %}
+          <span class="chip chip--ok">Mi cuenta</span>
         {% endif %}
       </div>
     </div>
@@ -39,18 +44,18 @@
         <label for="phone">Teléfono de contacto *</label>
         <input type="tel" id="phone" name="phone" value="{{ user.phone }}" maxlength="40" required
                placeholder="+54 9 11 0000-0000" />
-        <p class="hint">Lo usa la aeroplanta si necesita avisarte algo del turno.</p>
+        <p class="hint">La planta te puede llamar si necesita avisarte algo de tu turno.</p>
       </div>
 
       <div class="field">
-        <label for="company">Empresa / operador *</label>
+        <label for="company">Empresa u operador *</label>
         {% if empresa %}
           <input type="text" id="company" name="company" value="{{ empresa.nombre }}" maxlength="160" readonly />
-          <p class="hint">Estás vinculado a la empresa formal <strong>{{ empresa.nombre }}</strong>
-            ({{ user.role_in_empresa_label }}). El nombre lo define la membresía.</p>
+          <p class="hint">Formás parte de <strong>{{ empresa.nombre }}</strong>. El nombre lo define tu organización.</p>
         {% else %}
-          <input type="text" id="company" name="company" value="{{ user.company }}" maxlength="160" required />
-          <p class="hint">Cliente individual: texto libre. O creá tu empresa formal más abajo (self-serve). Si te invitan a una ya existente, se reemplaza al aceptar con Google.</p>
+          <input type="text" id="company" name="company" value="{{ user.company }}" maxlength="160" required
+                 placeholder="Ej. Aviación San Fernando" />
+          <p class="hint">Escribí el nombre con el que operás. Si alguien de tu empresa te invita, al entrar se completa solo.</p>
         {% endif %}
       </div>
 
@@ -61,10 +66,7 @@
       <hr style="border:0;border-top:1px solid var(--border);margin:1.4rem 0" />
       <h2>Crear mi empresa</h2>
       <p class="muted">
-        Si operás como organización, creá tu empresa acá. Quedás como
-        <strong>admin empresa</strong> y después podés invitar a tu equipo por email
-        (entran con Google). El panel de staff <code>/admin/empresas</code> sigue
-        disponible para nivel 2.
+        Si trabajás en una organización, creala acá. Después vas a poder invitar a tu equipo por email.
       </p>
       <form method="post" action="/perfil/empresa/crear" class="form-row">
         <div class="field field--grow">
@@ -77,11 +79,11 @@
       </form>
     {% elif empresa and user.is_admin_empresa %}
       <hr style="border:0;border-top:1px solid var(--border);margin:1.4rem 0" />
-      <h2>Panel empresa</h2>
+      <h2>Invitar al equipo</h2>
       <p class="muted">
-        Invitá por email. Cuando la persona entre con Google usando ese mail,
-        queda dentro de <strong>{{ empresa.nombre }}</strong>.
+        Sos quien administra la empresa. Podés invitar compañeros por email; entran con su cuenta de Google.
       </p>
+      <p class="hint">Escribí el email de cada persona. Van a ver los turnos y aeronaves de la empresa.</p>
 
       <form method="post" action="/perfil/empresa/invitar" class="form-row">
         <div class="field">
@@ -91,11 +93,11 @@
         <div class="field">
           <label for="invite_role">Rol</label>
           <select id="invite_role" name="role_in_empresa">
-            <option value="usuario_empresa">Usuario empresa</option>
-            <option value="admin_empresa">Admin empresa</option>
+            <option value="usuario_empresa">Usuario</option>
+            <option value="admin_empresa">Administrador</option>
           </select>
         </div>
-        <button type="submit" class="btn btn--accent">Invitar</button>
+        <button type="submit" class="btn btn--accent">Invitar al equipo</button>
       </form>
 
       {% if pending_invites %}
@@ -106,7 +108,7 @@
             {% for inv in pending_invites %}
               <tr>
                 <td>{{ inv.email }}</td>
-                <td>{{ role_in_empresa_labels.get(inv.role_in_empresa, inv.role_in_empresa) }}</td>
+                <td>{% if inv.role_in_empresa == 'admin_empresa' %}Administrador{% else %}Usuario{% endif %}</td>
                 <td class="table__actions">
                   <form method="post" action="/perfil/empresa/invitaciones/{{ inv.id }}/cancelar">
                     <button type="submit" class="btn btn--sm btn--outline">Cancelar</button>
@@ -129,7 +131,7 @@
                   <strong>{{ m.display_name }}</strong>
                   <br /><span class="muted">{{ m.email }}</span>
                 </td>
-                <td>{{ m.role_in_empresa_label }}</td>
+                <td>{% if m.role_in_empresa == 'admin_empresa' %}Administrador{% else %}Usuario{% endif %}</td>
               </tr>
             {% endfor %}
           </tbody>
@@ -140,18 +142,15 @@
     {% elif empresa %}
       <hr style="border:0;border-top:1px solid var(--border);margin:1.4rem 0" />
       <h2>Tu empresa</h2>
-      <p>Formás parte de <strong>{{ empresa.nombre }}</strong> como {{ user.role_in_empresa_label }}.</p>
+      <p>Formás parte de <strong>{{ empresa.nombre }}</strong>.</p>
       {% if members %}
         <p class="muted">{{ members|length }} miembro{{ 's' if members|length != 1 else '' }}.</p>
       {% endif %}
     {% endif %}
 
     <hr style="border:0;border-top:1px solid var(--border);margin:1.4rem 0" />
-    <h2>Mis Aeronaves</h2>
-    <p class="muted">Guardá las matrículas que usás seguido para prellenarlas al pedir un turno.
-      Son atajos personales: no limitan las matrículas válidas del maestro.
-      Podés pedir turno con matrícula de otra empresa; si el maestro tiene dueño distinto,
-      el operario ve un aviso (no es un candado).</p>
-    <p><a class="btn btn--outline" href="/perfil/aeronaves">Administrar Mis Aeronaves</a></p>
+    <h2>Mis aeronaves</h2>
+    <p class="muted">Guardá las matrículas que usás seguido para no tipearlas cada vez que pedís un turno.</p>
+    <p><a class="btn btn--outline" href="/perfil/aeronaves">Administrar mis aeronaves</a></p>
   </div>
 {% endblock %}

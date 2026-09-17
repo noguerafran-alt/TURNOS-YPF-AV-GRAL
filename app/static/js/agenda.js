@@ -87,15 +87,15 @@
       if (fuelKnownBlock) fuelKnownBlock.hidden = false;
       if (combustibleDisplay) combustibleDisplay.value = data.combustible;
       if (fuelHint) {
-        fuelHint.textContent = 'Combustible bloqueado según listado (readonly).';
+        fuelHint.textContent = 'El combustible sale de la matrícula. Si no coincide, avisá en planta.';
         fuelHint.hidden = false;
       }
     } else {
       if (primeraCargaWarn) primeraCargaWarn.hidden = false;
       if (fuelHint) {
         fuelHint.textContent = fromPick
-          ? 'Matrícula de tu lista sin combustible en el maestro: primera carga.'
-          : 'Matrícula nueva o sin combustible conocido: el operario reconfirmará en planta.';
+          ? 'Es la primera vez que cargamos esta matrícula. En planta van a confirmar el combustible con vos.'
+          : 'Es la primera vez que cargamos esta matrícula. En planta van a confirmar el combustible con vos.';
         fuelHint.hidden = false;
       }
     }
