@@ -120,6 +120,48 @@ def create_empresa(
     return empresa, user
 
 
+def create_empresa_selfserve(db: Session, *, user: User, nombre: str) -> Empresa:
+    """Cliente crea SU empresa y queda como admin_empresa (self-serve).
+
+    No toca usuarios de otra org. Si ya tiene empresa_id, falla.
+    Google OAuth: el User ya existe; solo ligamos membresía.
+    """
+    if user.empresa_id:
+        raise ValueError("Ya pertenecés a una empresa. Pedile a tu admin que te invite.")
+
+    nombre = " ".join(nombre.strip().split())
+    if not nombre:
+        raise ValueError("El nombre de la empresa es obligatorio.")
+    if len(nombre) > 160:
+        raise ValueError("Nombre demasiado largo.")
+
+    exists = db.scalar(
+        select(Empresa).where(func.lower(Empresa.nombre) == nombre.casefold())
+    )
+    if exists:
+        raise ValueError("Ya existe una empresa con ese nombre. Pedí invitación a su admin.")
+
+    empresa = Empresa(nombre=nombre, activo=True)
+    db.add(empresa)
+    db.flush()
+
+    user.empresa_id = empresa.id
+    user.role_in_empresa = RoleInEmpresa.ADMIN_EMPRESA
+    user.company = empresa.nombre
+
+    invite = InvitacionEmpresa(
+        email=user.email.strip().lower(),
+        empresa_id=empresa.id,
+        invited_by=user.id,
+        status=InvitacionStatus.ACCEPTED,
+        role_in_empresa=RoleInEmpresa.ADMIN_EMPRESA,
+        token=secrets.token_urlsafe(24),
+        accepted_at=datetime.now(UTC),
+    )
+    db.add(invite)
+    return empresa
+
+
 def invite_member(
     db: Session,
     *,
