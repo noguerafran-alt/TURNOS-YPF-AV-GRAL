@@ -4,10 +4,6 @@
 {% block content %}
   <div class="panel-head">
     <h1>Panel de administración</h1>
-    {% if user.can_manage_users %}
-      <a class="btn btn--outline" href="/admin/empresas">Empresas</a>
-      <a class="btn btn--outline" href="/admin/usuarios">Administrar usuarios</a>
-    {% endif %}
   </div>
   <p class="muted">Entraste como <strong>{{ user.role_label }}</strong>.</p>
 
@@ -17,30 +13,6 @@
     <li><span class="stats__num">{{ stats.turnos_total }}</span><span>Turnos confirmados</span></li>
     <li><span class="stats__num">{{ stats.clientes }}</span><span>Clientes registrados</span></li>
   </ul>
-
-
-  {% if import_result == "ok" %}
-    <div class="alert alert--ok">Maestro importado: {{ import_msg }}</div>
-  {% elif import_result == "error" %}
-    <div class="alert alert--error">Error al importar maestro: {{ import_msg }}</div>
-  {% endif %}
-
-  <section class="panel">
-    <h2>Maestro matrículas × combustible</h2>
-    <p class="muted">
-      Listado global usado para autofill al pedir turno (readonly si conocida;
-      aviso de primera carga si no). Hoy hay <strong>{{ matriculas_count }}</strong> matrículas.
-      Reimportar hace <strong>full replace</strong> desde
-      <code>data/maestro-aviones-version-final.xlsx</code>
-      (o <code>MAESTRO_MATRICULAS_PATH</code>). Columna <code>Avion</code> → tipo/modelo.
-      No toca Mis Aeronaves ni ownership.
-    </p>
-    <form method="post" action="/admin/matriculas/import"
-          onsubmit="return confirm('¿Reimportar el maestro (full replace) desde el xlsx del repo?');">
-      <button type="submit" class="btn btn--outline">Reimportar maestro</button>
-    </form>
-    <p class="hint">CLI: <code>python -m scripts.import_maestro_matriculas --replace</code></p>
-  </section>
 
   <section class="panel">
     <h2>Aeroplantas</h2>
@@ -55,7 +27,6 @@
               <td>
                 <strong>{{ agenda.name }}</strong>
                 {% if agenda.product %}<br /><span class="muted">{{ agenda.product }}</span>{% endif %}
-                <br /><code class="muted">/a/{{ agenda.slug }}</code>
               </td>
               <td>{{ agenda.location or "—" }}</td>
               <td>{{ agenda.slot_minutes }} min</td>
