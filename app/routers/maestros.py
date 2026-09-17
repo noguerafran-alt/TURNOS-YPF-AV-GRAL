@@ -15,6 +15,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.auth import require_admin
+from app.config import settings
 from app.database import get_db
 from app.emails import booking_payload, send_cancellation
 from app.matricula import normalize_grado, normalize_matricula
@@ -111,6 +112,9 @@ def _op_json(o: Operador) -> dict:
 
 
 def _user_json(u: User) -> dict:
+    last_login = None
+    if u.last_login_at:
+        last_login = u.last_login_at.astimezone(settings.tz).strftime("%d/%m/%Y %H:%M")
     return {
         "id": u.id,
         "name": u.name or "",
@@ -121,6 +125,7 @@ def _user_json(u: User) -> dict:
         "phone": u.phone or "",
         "is_blocked": u.is_blocked,
         "google_sub": bool(u.google_sub),
+        "last_login_at": last_login,
     }
 
 

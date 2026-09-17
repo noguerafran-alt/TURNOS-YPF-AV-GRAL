@@ -141,7 +141,7 @@
     <div class="notice--info">Vista de lectura. Solo nivel 2 puede cambiar roles, bloquear o eliminar usuarios.</div>
     {% endif %}
     <table class="table table--mae"><thead><tr>
-      <th>Nombre</th><th>Email</th><th>Rol</th><th>Cliente / empresa</th><th>Activo</th><th></th>
+      <th>Nombre</th><th>Email</th><th>Rol</th><th>Cliente / empresa</th><th>Último ingreso</th><th>Activo</th><th></th>
     </tr></thead><tbody id="us-body"></tbody></table>
   </section>
 </div>
@@ -637,6 +637,7 @@
         <td>${esc(u.email)}</td>
         <td>${esc(u.role_label || u.role)}</td>
         <td>${esc(u.company || '—')}</td>
+        <td>${esc(u.last_login_at || 'Nunca')}</td>
         <td>${u.is_blocked ? '<span class="chip chip--warn">Bloqueado</span>' : '<span class="chip chip--ok">Activo</span>'}</td>
         <td class="table__actions">
           ${canManage ? `

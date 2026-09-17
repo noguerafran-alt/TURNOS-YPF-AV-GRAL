@@ -45,6 +45,11 @@ def fmt_datetime(value: datetime) -> str:
     return f"{fmt_date_long(value)}, {fmt_time(value)}"
 
 
+def fmt_datetime_short(value: datetime) -> str:
+    """18/08/2026 15:40 en zona local (settings.tz)."""
+    return _local(value).strftime("%d/%m/%Y %H:%M")
+
+
 def weekday_name(value) -> str:
     return DAYS[value.weekday()]
 
@@ -57,6 +62,7 @@ templates.env.filters["time"] = fmt_time
 templates.env.filters["date"] = fmt_date
 templates.env.filters["date_long"] = fmt_date_long
 templates.env.filters["datetime"] = fmt_datetime
+templates.env.filters["datetime_short"] = fmt_datetime_short
 templates.env.filters["weekday"] = weekday_name
 templates.env.filters["month_short"] = month_short
 
