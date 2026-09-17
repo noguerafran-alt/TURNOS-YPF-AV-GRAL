@@ -1,16 +1,15 @@
 {% extends "base.html" %}
-{% block title %}Mis Aeronaves{% endblock %}
+{% block title %}Mis aeronaves{% endblock %}
 
 {% block content %}
-  <p class="breadcrumb"><a href="/perfil">Mi perfil</a> · Mis Aeronaves</p>
+  <p class="breadcrumb"><a href="/perfil">Mi perfil</a> · Mis aeronaves</p>
 
   <div class="card">
     <div class="panel-head">
-      <h1>Mis Aeronaves</h1>
+      <h1>Mis aeronaves</h1>
     </div>
     <p class="muted">
-      Lista personal para agilizar el pedido de turnos. No restringe quién puede cargar:
-      cualquiera puede pedir turno con una matrícula válida, aunque no esté acá.
+      Acá están las matrículas vinculadas a tu cuenta o empresa.
     </p>
 
     {% if saved %}<p class="alert alert--ok">Lista actualizada.</p>{% endif %}
@@ -37,7 +36,7 @@
               <td class="table__actions">
                 <a class="btn btn--outline btn--sm" href="/perfil/aeronaves?edit={{ a.id }}">Editar</a>
                 <form method="post" action="/perfil/aeronaves/{{ a.id }}/quitar"
-                      onsubmit="return confirm('¿Quitar {{ a.matricula_display or a.matricula }} de tu lista? El listado global no se modifica.');">
+                      onsubmit="return confirm('¿Quitar {{ a.matricula_display or a.matricula }} de tu lista?');">
                   <button type="submit" class="btn btn--danger btn--sm">Quitar</button>
                 </form>
               </td>
@@ -47,8 +46,7 @@
       </table>
     {% else %}
       <div class="empty">
-        <p>Todavía no cargaste aeronaves.</p>
-        <p class="hint">Agregá las que uses seguido para prellenarlas al pedir un turno.</p>
+        <p>Todavía no tenés aeronaves guardadas.</p>
       </div>
     {% endif %}
   </div>
@@ -78,7 +76,7 @@
                  placeholder="Ej: Monomotor" />
         </div>
         <div class="field">
-          <label for="combustible">Combustible / grado</label>
+          <label for="combustible">Combustible</label>
           <select id="combustible" name="combustible">
             <option value="">— Sin especificar —</option>
             {% for g in grados %}
@@ -86,12 +84,12 @@
                 {% if editing and editing.combustible == g %}selected{% endif %}>{{ g }}</option>
             {% endfor %}
           </select>
-          <p class="hint">Si la matrícula ya está en el listado global, se reutiliza ese grado.</p>
+          <p class="hint">Lo define el historial de la matrícula. Si hay que cambiarlo, pedilo en planta.</p>
         </div>
       </div>
       <div class="dialog__actions" style="justify-content:flex-start;gap:.6rem">
         <button type="submit" class="btn btn--accent">
-          {{ "Guardar cambios" if editing else "Agregar a mi lista" }}
+          {{ "Guardar cambios" if editing else "Agregar aeronave" }}
         </button>
         {% if editing %}
           <a class="btn btn--outline" href="/perfil/aeronaves">Cancelar</a>
