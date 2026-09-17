@@ -29,9 +29,23 @@
   @media (max-width: 560px) { .dash-kpis { grid-template-columns: repeat(2, 1fr); } }
   .dash-kpi {
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
-    padding: .9rem .85rem .75rem; box-shadow: var(--shadow-sm);
+    padding: .9rem .85rem .75rem; box-shadow: var(--elev-1);
     border-top: 4px solid var(--navy-800);
+    transition:
+      transform var(--motion-med) var(--ease-out),
+      box-shadow var(--motion-med) var(--ease-out),
+      border-color var(--motion-fast) var(--ease-out);
   }
+  .dash-kpi:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--elev-hover);
+    border-color: rgba(4,81,221,.20);
+  }
+  .dash-kpi:active {
+    transform: translateY(0);
+    box-shadow: inset 0 1px 2px rgba(7,26,51,.12);
+  }
+  .dash-kpi:hover .dash-kpi__num { transform: scale(1.02); }
   .dash-kpi--amber { border-top-color: var(--accent); }
   .dash-kpi--teal { border-top-color: #1F8A70; }
   .dash-kpi--ok { border-top-color: var(--ok); }
@@ -40,6 +54,7 @@
   .dash-kpi__num {
     display: block; font-family: var(--font-head); font-size: 1.65rem; font-weight: 700;
     color: var(--text); line-height: 1.1;
+    transition: transform var(--motion-fast) var(--ease-out);
   }
   .dash-kpi__label {
     display: block; margin-top: .25rem; font-size: .68rem; font-weight: 700;
@@ -50,8 +65,10 @@
   @media (max-width: 800px) { .dash-grid { grid-template-columns: 1fr; } }
   .dash-card {
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 1rem 1.15rem; box-shadow: var(--shadow-sm);
+    padding: 1rem 1.15rem; box-shadow: var(--elev-1);
+    transition: box-shadow var(--motion-med) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
   }
+  .dash-card:hover { box-shadow: var(--elev-2); border-color: rgba(4,81,221,.14); }
   .dash-card h2 {
     margin: 0 0 .85rem; font-size: 1rem; display: flex; align-items: center; gap: .45rem;
     color: var(--text);
@@ -96,6 +113,8 @@
     padding: .55rem .4rem; border-bottom: 1px solid var(--border); vertical-align: middle;
   }
   .dash-table tr:last-child td { border-bottom: 0; }
+  .dash-table tbody tr { transition: background-color var(--motion-fast) var(--ease-out); }
+  .dash-table tbody tr:hover { background: var(--row-hover-bg); }
   .dash-table .mono { font-family: ui-monospace, monospace; font-weight: 700; }
   .chip--pendiente { background: var(--warn-bg); color: var(--warn); }
   .chip--programado { background: #EEF3FA; color: var(--navy-800); }

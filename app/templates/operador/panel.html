@@ -15,8 +15,22 @@
     display: grid; gap: .55rem 1rem; align-items: center;
     grid-template-columns: 72px minmax(110px, 1.1fr) minmax(90px, 1fr) auto minmax(100px, .9fr) auto;
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: .9rem 1rem; margin-bottom: .65rem; box-shadow: var(--shadow-sm);
+    padding: .9rem 1rem; margin-bottom: .65rem; box-shadow: var(--elev-1);
+    transition:
+      transform var(--motion-med) var(--ease-out),
+      box-shadow var(--motion-med) var(--ease-out),
+      background-color var(--motion-fast) var(--ease-out),
+      border-color var(--motion-fast) var(--ease-out);
   }
+  .op-row:hover {
+    background: var(--row-hover-bg);
+    border-color: rgba(4,81,221,.18);
+    box-shadow: var(--elev-2);
+    transform: translateY(-1px);
+  }
+  .op-row .op-row__actions .btn { opacity: .72; transition: opacity var(--motion-fast) var(--ease-out); }
+  .op-row:hover .op-row__actions .btn,
+  .op-row .op-row__actions .btn:focus-visible { opacity: 1; }
   @media (max-width: 800px) {
     .op-row { grid-template-columns: 1fr 1fr; }
     .op-row__actions { grid-column: 1 / -1; }
