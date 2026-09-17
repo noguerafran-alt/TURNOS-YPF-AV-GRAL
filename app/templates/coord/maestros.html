@@ -120,8 +120,9 @@
       <button type="button" class="btn btn--sm" id="op-add">+ Operador</button>
     </div>
     <p class="muted" style="margin-top:0">Personas asignables a turnos. No implica login salvo vínculo a user.</p>
+    <div class="notice--info">Maestros globales (agenda_id vacío) se ven con «Todas / global» y también al filtrar una planta.</div>
     <table class="table table--mae"><thead><tr>
-      <th>Nombre</th><th>Estado</th><th>User vinculado</th><th></th>
+      <th>Nombre</th><th>Ámbito</th><th>Estado</th><th>User vinculado</th><th></th>
     </tr></thead><tbody id="op-body"></tbody></table>
   </section>
 
@@ -200,6 +201,29 @@
     return data;
   }
   function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  /** Selector Ámbito / Planta: Global (null) o Agenda concreta. */
+  function ambitoFieldHtml(selectedAgendaId) {
+    const opts = Array.from(document.getElementById('f-agenda').options);
+    const cur = selectedAgendaId == null || selectedAgendaId === '' ? '' : String(selectedAgendaId);
+    const options = opts.map(o => {
+      const val = o.value;
+      const label = val ? o.textContent.trim() : 'Global';
+      const sel = (val === cur) ? ' selected' : '';
+      return '<option value="' + esc(val) + '"' + sel + '>' + esc(label) + '</option>';
+    }).join('');
+    return '<div class="field"><label for="f-ambito">Ámbito / Planta</label>'
+      + '<select id="f-ambito">' + options + '</select></div>';
+  }
+  function readAmbitoAgendaId() {
+    const v = document.getElementById('f-ambito').value;
+    return v ? Number(v) : null;
+  }
+  function ambitoLabel(agendaId) {
+    if (agendaId == null) return 'Global';
+    const opt = Array.from(document.getElementById('f-agenda').options).find(o => o.value === String(agendaId));
+    return opt ? opt.textContent.trim() : ('Planta #' + agendaId);
+  }
 
   // Tabs
   const tabs = document.querySelectorAll('.mae-tab');
@@ -400,7 +424,7 @@
       <tr data-id="${h.id}">
         <td><strong>${esc(h.codigo)}</strong></td>
         <td>${esc(h.nombre)}</td>
-        <td>${esc(h.ambito || (h.agenda_id == null ? 'Global' : ('Planta #' + h.agenda_id)))}</td>
+        <td>${esc(ambitoLabel(h.agenda_id))}</td>
         <td>${h.activo ? '<span class="chip chip--ok">Activo</span>' : '<span class="chip chip--warn">Inactivo</span>'}</td>
         <td class="table__actions">
           <button type="button" class="btn btn--outline btn--sm hg-edit">Editar</button>
@@ -416,6 +440,7 @@
           <div class="field"><label>Código</label><input id="f-cod" value="${esc(h.codigo)}" /></div>
           <div class="field"><label>Nombre</label><input id="f-nom" value="${esc(h.nombre)}" /></div>
           <div class="field"><label>Capacidad</label><input type="number" id="f-cap" value="${h.capacidad ?? ''}" /></div>
+          ${ambitoFieldHtml(h.agenda_id)}
         `, async () => {
           await api('/coord/maestros/hangares/' + id, {
             method:'PATCH', headers:{'Content-Type':'application/json'},
@@ -423,7 +448,7 @@
               codigo: document.getElementById('f-cod').value,
               nombre: document.getElementById('f-nom').value,
               capacidad: document.getElementById('f-cap').value ? Number(document.getElementById('f-cap').value) : null,
-              agenda_id: h.agenda_id,
+              agenda_id: readAmbitoAgendaId(),
               activo: h.activo,
             })
           });
@@ -448,6 +473,7 @@
       <div class="field"><label>Código *</label><input id="f-cod" placeholder="H15" /></div>
       <div class="field"><label>Nombre *</label><input id="f-nom" /></div>
       <div class="field"><label>Capacidad</label><input type="number" id="f-cap" /></div>
+      ${ambitoFieldHtml(agendaId())}
     `, async () => {
       await api('/coord/maestros/hangares', {
         method:'POST', headers:{'Content-Type':'application/json'},
@@ -455,7 +481,7 @@
           codigo: document.getElementById('f-cod').value,
           nombre: document.getElementById('f-nom').value,
           capacidad: document.getElementById('f-cap').value ? Number(document.getElementById('f-cap').value) : null,
-          agenda_id: agendaId(),
+          agenda_id: readAmbitoAgendaId(),
           activo: true,
         })
       });
@@ -478,7 +504,7 @@
         <td>${esc(a.nombre)}</td>
         <td>${gradoChip(a.grado)}</td>
         <td>${a.capacidad_l != null ? a.capacidad_l : '—'}</td>
-        <td>${esc(a.ambito || (a.agenda_id == null ? 'Global' : ('Planta #' + a.agenda_id)))}</td>
+        <td>${esc(ambitoLabel(a.agenda_id))}</td>
         <td>${a.activo ? '<span class="chip chip--ok">Activa</span>' : '<span class="chip chip--warn">Fuera de servicio</span>'}</td>
         <td class="table__actions">
           <button type="button" class="btn btn--outline btn--sm ab-edit">Editar</button>
@@ -494,6 +520,7 @@
           <div class="field"><label>ID / Código</label><input id="f-cod" value="${esc(a.codigo||'')}" /></div>
           <div class="field"><label>Nombre</label><input id="f-nom" value="${esc(a.nombre)}" /></div>
           <div class="field"><label>Capacidad (L)</label><input type="number" id="f-cap" value="${a.capacidad_l ?? ''}" /></div>
+          ${ambitoFieldHtml(a.agenda_id)}
           <div class="field field--check"><label><input type="checkbox" id="f-act" ${a.activo?'checked':''}/> Activa</label></div>
         `, async () => {
           await api('/coord/maestros/abastecedoras/' + id, {
@@ -504,7 +531,7 @@
               grado: a.grado,
               capacidad_l: document.getElementById('f-cap').value ? Number(document.getElementById('f-cap').value) : null,
               activo: document.getElementById('f-act').checked,
-              agenda_id: a.agenda_id,
+              agenda_id: readAmbitoAgendaId(),
             })
           });
           showToast('Actualizada');
@@ -539,6 +566,7 @@
       <div class="field"><label>Nombre *</label><input id="f-nom" /></div>
       <div class="field"><label>Grado *</label><select id="f-grado"><option>JET A-1</option><option>AVGAS 100LL</option></select></div>
       <div class="field"><label>Capacidad (L)</label><input type="number" id="f-cap" /></div>
+      ${ambitoFieldHtml(agendaId())}
     `, async () => {
       await api('/coord/maestros/abastecedoras', {
         method:'POST', headers:{'Content-Type':'application/json'},
@@ -547,7 +575,7 @@
           nombre: document.getElementById('f-nom').value,
           grado: document.getElementById('f-grado').value,
           capacidad_l: document.getElementById('f-cap').value ? Number(document.getElementById('f-cap').value) : null,
-          agenda_id: agendaId(),
+          agenda_id: readAmbitoAgendaId(),
           activo: true,
         })
       });
@@ -558,12 +586,16 @@
 
   // ---- Operadores ----
   async function loadOps() {
-    const data = await api('/coord/maestros/operadores');
-    document.getElementById('op-title').textContent = 'Operadores (' + data.total + ')';
+    const q = new URLSearchParams();
+    const aid = agendaId(); if (aid) q.set('agenda_id', aid);
+    const data = await api('/coord/maestros/operadores?' + q);
+    const scopeLabel = agendaId() ? 'planta + globales' : 'Todas / global';
+    document.getElementById('op-title').textContent = 'Operadores (' + data.total + ') — ' + scopeLabel;
     const tb = document.getElementById('op-body');
     tb.innerHTML = (data.items||[]).map(o => `
       <tr data-id="${o.id}">
         <td>${esc(o.nombre)}</td>
+        <td>${esc(ambitoLabel(o.agenda_id))}</td>
         <td>${o.activo ? '<span class="chip chip--ok">Activo</span>' : '<span class="chip chip--warn">Inactivo</span>'}</td>
         <td>${o.user_email ? esc(o.user_email) : '<span class="muted">—</span>'}</td>
         <td class="table__actions">
@@ -571,13 +603,14 @@
           <button type="button" class="btn btn--outline btn--sm op-tog">${o.activo?'Desactivar':'Activar'}</button>
           <button type="button" class="btn btn--danger btn--sm op-del">Eliminar</button>
         </td>
-      </tr>`).join('');
+      </tr>`).join('') || '<tr><td colspan="5" class="muted">Sin operadores.</td></tr>';
     tb.querySelectorAll('tr[data-id]').forEach(tr => {
       const id = Number(tr.dataset.id);
       const o = data.items.find(x => x.id === id);
       tr.querySelector('.op-edit').onclick = () => {
         openEdit('Editar operador', `
           <div class="field"><label>Nombre</label><input id="f-nom" value="${esc(o.nombre)}" /></div>
+          ${ambitoFieldHtml(o.agenda_id)}
           <div class="field"><label>User ID vinculado (opcional)</label><input type="number" id="f-uid" value="${o.user_id ?? ''}" placeholder="id de users" /></div>
           <div class="field field--check"><label><input type="checkbox" id="f-act" ${o.activo?'checked':''}/> Activo</label></div>
         `, async () => {
@@ -585,6 +618,7 @@
             method:'PATCH', headers:{'Content-Type':'application/json'},
             body: JSON.stringify({
               nombre: document.getElementById('f-nom').value,
+              agenda_id: readAmbitoAgendaId(),
               user_id: document.getElementById('f-uid').value ? Number(document.getElementById('f-uid').value) : null,
               activo: document.getElementById('f-act').checked,
             })
@@ -605,12 +639,14 @@
   document.getElementById('op-add').onclick = () => {
     openEdit('Nuevo operador', `
       <div class="field"><label>Nombre *</label><input id="f-nom" /></div>
+      ${ambitoFieldHtml(agendaId())}
       <div class="field"><label>User ID vinculado (opcional)</label><input type="number" id="f-uid" /></div>
     `, async () => {
       await api('/coord/maestros/operadores', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
           nombre: document.getElementById('f-nom').value,
+          agenda_id: readAmbitoAgendaId(),
           user_id: document.getElementById('f-uid').value ? Number(document.getElementById('f-uid').value) : null,
           activo: true,
         })

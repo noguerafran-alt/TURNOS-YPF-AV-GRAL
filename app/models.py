@@ -395,6 +395,7 @@ class Operador(Base):
     """Maestro de operadores asignables (Turnera). No es cuenta de login.
 
     user_id opcional enlaza a un User con role=operador cuando exista cuenta Google.
+    agenda_id NULL = Global (todas las plantas); set = acotado a esa Agenda.
     """
 
     __tablename__ = "operadores"
@@ -404,10 +405,14 @@ class Operador(Base):
     # Clave de upsert: NFKC + casefold + espacios colapsados
     nombre_norm: Mapped[str] = mapped_column(String(160), unique=True, index=True)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    agenda_id: Mapped[int | None] = mapped_column(
+        ForeignKey("agendas.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True, unique=True
     )
 
+    agenda: Mapped["Agenda | None"] = relationship()
     user: Mapped["User | None"] = relationship()
     bookings: Mapped[list["Booking"]] = relationship(back_populates="operador")
 

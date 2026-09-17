@@ -33,7 +33,11 @@ Campos: `codigo` (AB-01…), `nombre`, `grado`, `capacidad_l` (opcional), `activ
 
 ### Operadores (maestro)
 
-Tabla `operadores`: `nombre`, `nombre_norm` (único), `activo`, `user_id` nullable.
+Tabla `operadores`: `nombre`, `nombre_norm` (único), `activo`, `agenda_id` nullable,
+`user_id` nullable.
+
+- **`agenda_id=NULL`**: maestro **global** (mismo criterio que hangares/abastecedoras).
+- En Maestros (alta/edición) el selector **Ámbito / Planta** permite Global o una Agenda.
 
 No son cuentas de login. El rol de login `operador` (PR#5) es aparte: cuando exista
 un `User` con `role=operador` cuyo nombre/email normalizado coincida, el seed
