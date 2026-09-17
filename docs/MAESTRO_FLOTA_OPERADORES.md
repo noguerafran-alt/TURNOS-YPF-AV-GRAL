@@ -61,9 +61,7 @@ mismo seed automáticamente. Es seguro e idempotente: si ya hay filas, no hace
 nada en el boot.
 
 En Render: **reiniciar el servicio** (o redeploy) alcanza para poblar live
-después de un merge. Alternativa inmediata: en `/coord/maestros` (nivel 1+),
-botón **Re-sembrar maestros** → `POST /coord/maestros/reseed` (fuerza upsert
-desde `data/*.csv` y muestra los counts).
+después de un merge.
 
 Tabla / modelo: `Hangar` → `__tablename__ = "hangares"` (coincide con lo que
 consulta Maestros). Filas con `agenda_id IS NULL` se ven con Planta = Todas y
