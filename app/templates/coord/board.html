@@ -121,6 +121,7 @@
 <dialog class="dialog dialog--wide" id="dlg-asignar">
   <form method="dialog" class="dialog__close-form"><button class="dialog__close" aria-label="Cerrar">×</button></form>
   <h2 id="dlg-asignar-title">Asignar</h2>
+  <div id="dlg-asignar-fuel"></div>
   <p class="dialog__slot" id="dlg-asignar-summary"></p>
   <div class="field">
     <label for="asig-ab">Abastecedora</label>
@@ -160,6 +161,7 @@
     <div class="field" style="flex:1"><label for="man-time">Hora *</label><input type="time" id="man-time" value="08:00" /></div>
   </div>
   <div class="field"><label for="man-aircraft">Matrícula *</label><input type="text" id="man-aircraft" placeholder="LV-XXX" /></div>
+  <div id="man-fuel-banner"></div>
   <div class="field"><label for="man-model">Modelo</label><input type="text" id="man-model" placeholder="Cessna 172" /></div>
   <div class="field"><label for="man-liters">Litros</label><input type="number" id="man-liters" min="1" max="20000" /></div>
   <div class="field"><label for="man-fuel">Combustible</label><input type="text" id="man-fuel" placeholder="Se completa según matrícula o agenda" /></div>
@@ -193,6 +195,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="/static/js/fuel_banner.js"></script>
 <script>
 (function () {
   const app = document.getElementById('coord-app');
@@ -228,10 +231,23 @@
   }
 
   function gradoChip(fuel) {
+    if (window.FuelBanner) return window.FuelBanner.chip(fuel);
     const u = (fuel || '').toUpperCase();
-    if (u.includes('JET')) return '<span class="chip chip--jet">JET A-1</span>';
-    if (u.includes('AVGAS') || u.includes('100LL')) return '<span class="chip chip--avgas">AVGAS 100LL</span>';
+    if (u.includes('JET')) return '<span class="chip chip--jet">JET</span>';
+    if (u.includes('AVGAS') || u.includes('100LL')) return '<span class="chip chip--avgas">AVGAS</span>';
     return fuel ? `<span class="chip">${escapeHtml(fuel)}</span>` : '';
+  }
+  function fuelBannerHtml(b, extra) {
+    if (!window.FuelBanner || !b) return '';
+    return window.FuelBanner.render(Object.assign({
+      combustible: b.combustible_declarado,
+      matricula: b.aircraft,
+      tipo: b.aircraft_model,
+      cliente: b.empresa || b.cliente,
+      audience: 'staff',
+      variant: 'turno',
+      lockedByMaestro: false,
+    }, extra || {}));
   }
   function statusChip(st) {
     const map = { PENDIENTE: 'pendiente', PROGRAMADO: 'programado', ABASTECIDO: 'abastecido', AUSENTE: 'ausente' };
@@ -342,8 +358,10 @@
     const b = bookings.find(x => x.id === id);
     if (!b) return;
     $('dlg-asignar-title').textContent = reasignar ? 'Reasignar' : 'Asignar';
+    const asigFuel = $('dlg-asignar-fuel');
+    if (asigFuel) asigFuel.innerHTML = fuelBannerHtml(b);
     $('dlg-asignar-summary').textContent =
-      `${b.fecha} · ${b.hora} · ${b.aircraft} · ${b.combustible_declarado || '—'} · ${b.liters ? b.liters + ' L' : ''} · ${b.agenda_name}`;
+      `${b.fecha} · ${b.hora} · ${b.aircraft} · ${b.liters ? b.liters + ' L' : ''} · ${b.agenda_name}`;
     const day = $('f-date').value;
     const abs = abastecedorasSeed.filter(a => !a.agenda_id || a.agenda_id === b.agenda_id);
     const fuel = (b.combustible_declarado || '').toUpperCase();
@@ -384,6 +402,7 @@
     detalleBooking = b;
     const needs = b.badge_primera_carga;
     let html = `
+      ${fuelBannerHtml(b)}
       <p><strong>${escapeHtml(b.aircraft)}</strong> ${gradoChip(b.combustible_declarado)}
         <span class="chip">${escapeHtml(b.origen)}</span>
         ${b.sobreturno ? '<span class="chip chip--sobreturno">SOBRETURNO</span>' : ''}
@@ -391,8 +410,6 @@
       </p>
       <p class="muted">${escapeHtml(b.cliente)} · ${escapeHtml(b.agenda_name)} · ${escapeHtml(b.fecha)} ${escapeHtml(b.hora)}
         ${b.liters ? ' · ' + b.liters + ' L' : ''}</p>
-      <p>Combustible declarado: <strong>${escapeHtml(b.combustible_declarado || '—')}</strong>
-        ${!needs ? '<span class="muted"> · Conocida</span>' : ''}</p>
       <p>Asignación: ${b.abastecedora ? escapeHtml(b.abastecedora) + ' · ' + escapeHtml(b.operador || '') : '<span style="color:var(--warn)">Sin asignar</span>'}</p>
     `;
     if (needs && b.coordinacion_status === 'PROGRAMADO') {
@@ -485,11 +502,53 @@
     }
   }
 
+  function clearManualFuelBanner() {
+    const el = $('man-fuel-banner');
+    if (el) el.innerHTML = '';
+  }
+
+  async function lookupManualMatricula() {
+    const raw = ($('man-aircraft').value || '').trim();
+    const mount = $('man-fuel-banner');
+    if (!mount) return;
+    if (raw.length < 2) { clearManualFuelBanner(); return; }
+    try {
+      const data = await api('/api/matricula/' + encodeURIComponent(raw));
+      const unknown = !!(data.primera_carga || data.unknown_matricula);
+      const fuel = (!unknown && data.combustible)
+        ? data.combustible
+        : (($('man-fuel').value || '').trim()
+            || ($('man-agenda').selectedOptions[0] && $('man-agenda').selectedOptions[0].dataset.product)
+            || '');
+      if (data.combustible && !unknown) {
+        $('man-fuel').value = data.combustible;
+        $('man-fuel').readOnly = true;
+      } else {
+        $('man-fuel').readOnly = false;
+      }
+      const tipo = (data.modelo || data.tipo || '').trim();
+      if (tipo && !$('man-model').value.trim()) $('man-model').value = tipo;
+      if (!fuel || !window.FuelBanner) { clearManualFuelBanner(); return; }
+      mount.innerHTML = window.FuelBanner.render({
+        combustible: fuel,
+        matricula: data.matricula || raw,
+        tipo: tipo || $('man-model').value,
+        audience: 'staff',
+        variant: (!unknown && data.combustible) ? 'maestro' : 'turno',
+        lockedByMaestro: !unknown && !!data.combustible,
+      });
+    } catch (_) {
+      clearManualFuelBanner();
+    }
+  }
+
   function openManual() {
     $('man-error').hidden = true;
     const agendaSel = $('f-agenda').value;
     if (agendaSel) $('man-agenda').value = agendaSel;
     $('man-date').value = $('f-date').value || app.dataset.today;
+    $('man-fuel').readOnly = false;
+    clearManualFuelBanner();
     $('dlg-manual').showModal();
   }
 
@@ -537,6 +596,13 @@
   $('asig-submit').addEventListener('click', submitAsignar);
   $('man-cancel').addEventListener('click', () => $('dlg-manual').close());
   $('man-submit').addEventListener('click', submitManual);
+  let manLookupTimer;
+  $('man-aircraft').addEventListener('input', () => {
+    clearTimeout(manLookupTimer);
+    manLookupTimer = setTimeout(lookupManualMatricula, 350);
+  });
+  $('man-aircraft').addEventListener('blur', lookupManualMatricula);
+  $('man-agenda').addEventListener('change', lookupManualMatricula);
   $('motivo-cancel').addEventListener('click', () => $('dlg-motivo').close());
   $('motivo-submit').addEventListener('click', submitMotivo);
 

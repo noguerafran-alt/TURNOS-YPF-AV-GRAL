@@ -87,6 +87,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="/static/js/fuel_banner.js"></script>
 <script>
 (function () {
   'use strict';
@@ -110,10 +111,24 @@
   }
 
   function fuelChip(fuel) {
+    if (window.FuelBanner) return window.FuelBanner.chip(fuel);
     const f = (fuel || '').toUpperCase();
-    if (f.includes('JET')) return '<span class="chip chip--jet">JET A-1</span>';
-    if (f.includes('AVGAS') || f.includes('100LL')) return '<span class="chip chip--avgas">AVGAS 100LL</span>';
+    if (f.includes('JET')) return '<span class="chip chip--jet">JET</span>';
+    if (f.includes('AVGAS') || f.includes('100LL')) return '<span class="chip chip--avgas">AVGAS</span>';
     return fuel ? `<span class="chip">${escapeHtml(fuel)}</span>` : '';
+  }
+  function fuelBannerHtml(b) {
+    if (!window.FuelBanner || !b) return '';
+    return window.FuelBanner.render({
+      combustible: b.combustible_declarado,
+      matricula: b.aircraft,
+      tipo: b.aircraft_model,
+      cliente: b.empresa || b.cliente,
+      audience: 'staff',
+      variant: 'turno',
+      lockedByMaestro: false,
+      sticky: true,
+    });
   }
 
   async function api(path, opts = {}) {
@@ -172,9 +187,9 @@
     const body = $('dlg-detalle-body');
     const needs = b.badge_primera_carga;
     body.innerHTML = `
+      ${fuelBannerHtml(b)}
       <p><strong>${escapeHtml(b.hora)}</strong> · ${escapeHtml(b.aircraft || '—')} · ${escapeHtml(b.agenda_name || '')}</p>
-      <p>Combustible: ${escapeHtml(b.combustible_declarado || '—')} · Litros: ${b.liters != null ? escapeHtml(String(b.liters)) : '—'}</p>
-      <p>Abastecedora: ${escapeHtml(b.abastecedora || '—')}</p>
+      <p>Litros: ${b.liters != null ? escapeHtml(String(b.liters)) : '—'} · Abastecedora: ${escapeHtml(b.abastecedora || '—')}</p>
       ${b.notes ? `<p class="muted">Notas: ${escapeHtml(b.notes)}</p>` : ''}
       ${needs ? `
         <div class="op-check">

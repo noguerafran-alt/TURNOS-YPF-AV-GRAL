@@ -64,6 +64,29 @@
   const primeraCargaWarn = document.getElementById('primeraCargaWarn');
   const aircraftInput = bookForm ? bookForm.aircraft : null;
 
+  const fuelBannerMount = document.getElementById('fuelBannerMount');
+
+  function clearFuelBanner() {
+    if (!fuelBannerMount) return;
+    fuelBannerMount.hidden = true;
+    fuelBannerMount.innerHTML = '';
+  }
+
+  function showFuelBanner({ combustible, matricula, tipo, locked }) {
+    if (!fuelBannerMount || !window.FuelBanner) return;
+    const fuel = combustible || window.AGENDA_PRODUCT || '';
+    if (!fuel) { clearFuelBanner(); return; }
+    fuelBannerMount.innerHTML = window.FuelBanner.render({
+      combustible: fuel,
+      matricula: matricula || '',
+      tipo: tipo || '',
+      audience: 'cliente',
+      variant: locked ? 'maestro' : 'turno',
+      lockedByMaestro: !!locked,
+    });
+    fuelBannerMount.hidden = !fuelBannerMount.innerHTML;
+  }
+
   function clearFuelUi() {
     if (fuelHint) {
       fuelHint.hidden = true;
@@ -76,6 +99,7 @@
     if (fuelKnownBlock) fuelKnownBlock.hidden = true;
     if (combustibleDisplay) combustibleDisplay.value = '';
     if (primeraCargaWarn) primeraCargaWarn.hidden = true;
+    clearFuelBanner();
   }
 
   function resetAircraftPick() {
@@ -88,6 +112,9 @@
     if (!data || !data.ok) return;
 
     const unknown = !!(data.primera_carga || data.unknown_matricula);
+    const tipoAvion = (data.modelo || data.tipo || '').trim();
+    const mat = (data.matricula || (aircraftInput && aircraftInput.value) || '').trim();
+
     if (!unknown && data.combustible) {
       if (fuelKnownBlock) fuelKnownBlock.hidden = false;
       if (combustibleDisplay) combustibleDisplay.value = data.combustible;
@@ -95,6 +122,12 @@
         fuelHint.textContent = 'El combustible sale de la matrícula. Si no coincide, avisá en planta.';
         fuelHint.hidden = false;
       }
+      showFuelBanner({
+        combustible: data.combustible,
+        matricula: mat,
+        tipo: tipoAvion,
+        locked: true,
+      });
     } else {
       if (primeraCargaWarn) primeraCargaWarn.hidden = false;
       if (fuelHint) {
@@ -103,9 +136,15 @@
           : 'Es la primera vez que cargamos esta matrícula. En planta van a confirmar el combustible con vos.';
         fuelHint.hidden = false;
       }
+      // Grado de la agenda (producto) + alert warn debajo
+      showFuelBanner({
+        combustible: window.AGENDA_PRODUCT || '',
+        matricula: mat,
+        tipo: tipoAvion,
+        locked: false,
+      });
     }
 
-    const tipoAvion = (data.modelo || data.tipo || '').trim();
     if (tipoAvion && bookForm && bookForm.aircraft_model) {
       // Maestro manda: rellenar / refrescar modelo desde Avion
       bookForm.aircraft_model.value = tipoAvion;

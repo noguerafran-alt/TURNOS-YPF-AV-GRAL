@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi.templating import Jinja2Templates
 
 from app.config import settings
+from app.fuel_banner import build_fuel_banner, fuel_banner_dict
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
@@ -70,3 +71,5 @@ templates.env.filters["month_short"] = month_short
 templates.env.globals["company_name"] = settings.company_name
 templates.env.globals["company_tagline"] = settings.company_tagline
 templates.env.globals["support_email"] = settings.support_email
+templates.env.globals["build_fuel_banner"] = build_fuel_banner
+templates.env.globals["fuel_banner_dict"] = fuel_banner_dict

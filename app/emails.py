@@ -54,6 +54,9 @@ def booking_payload(booking, agenda, user) -> dict[str, Any]:
         "flight_number": booking.flight_number,
         "liters": booking.liters,
         "notes": booking.notes,
+        "combustible_declarado": getattr(booking, "combustible_declarado", None)
+            or getattr(agenda, "product", None)
+            or "",
         "bookings_url": f"{settings.base_url}/mis-turnos",
         "agenda_url": f"{settings.base_url}/a/{agenda.slug}",
     }
