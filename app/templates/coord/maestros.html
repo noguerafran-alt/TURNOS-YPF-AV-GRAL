@@ -51,9 +51,6 @@
         El grado de cada matrícula es el dato crítico: bloquea todas las validaciones aguas abajo.
         Coordinador y Admin pueden editarlo (con confirmación).
       </p>
-      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem">
-        <button type="button" class="btn btn--sm btn--accent" id="mae-reseed" title="Carga/actualiza hangares, abastecedoras y operadores desde data/*.csv">Re-sembrar maestros</button>
-      </div>
     </div>
     <div class="field" style="margin:0;min-width:200px">
       <label for="f-agenda">Planta / Agenda</label>
@@ -711,26 +708,6 @@
       showToast('Usuario creado');
       loadUsers();
     });
-  };
-
-  document.getElementById('mae-reseed').onclick = async () => {
-    const btn = document.getElementById('mae-reseed');
-    if (!confirm('¿Re-sembrar hangares, abastecedoras y operadores desde data/*.csv? Es idempotente (no duplica).')) return;
-    btn.disabled = true;
-    try {
-      const data = await api('/coord/maestros/reseed', { method: 'POST' });
-      showToast(data.message || 'Re-sembrado');
-      const tab = document.querySelector('.mae-tab.is-active');
-      const name = tab ? tab.dataset.tab : 'aeronaves';
-      if (loaders[name]) loaders[name]();
-      loadHangares();
-      if (loaders.abastecedoras) loaders.abastecedoras();
-      if (loaders.operadores) loaders.operadores();
-    } catch (e) {
-      alert(e.message);
-    } finally {
-      btn.disabled = false;
-    }
   };
 
   loadAeronaves();
