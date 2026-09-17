@@ -108,6 +108,8 @@ def _op_json(o: Operador) -> dict:
         "id": o.id,
         "nombre": o.nombre,
         "activo": o.activo,
+        "agenda_id": o.agenda_id,
+        "ambito": "Global" if o.agenda_id is None else f"Planta #{o.agenda_id}",
         "user_id": o.user_id,
         "user_email": o.user.email if o.user else None,
         "user_name": o.user.display_name if o.user else None,
@@ -720,18 +722,22 @@ def delete_abs(
 class OperadorBody(BaseModel):
     nombre: str = Field(min_length=1, max_length=160)
     activo: bool = True
+    agenda_id: int | None = None
     user_id: int | None = None
 
 
 @router.get("/coord/maestros/operadores")
 def list_ops(
+    agenda_id: int | None = Query(None, description="Planta; omitir = Todas/global (incluye agenda_id NULL)"),
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
     _ = admin
-    rows = db.scalars(
-        select(Operador).options(selectinload(Operador.user)).order_by(Operador.nombre)
-    ).all()
+    stmt = select(Operador).options(selectinload(Operador.user)).order_by(Operador.nombre)
+    scope = _maestro_agenda_scope(Operador.agenda_id, agenda_id)
+    if scope is not None:
+        stmt = stmt.where(scope)
+    rows = db.scalars(stmt).all()
     return {"ok": True, "total": len(rows), "items": [_op_json(o) for o in rows]}
 
 
@@ -754,7 +760,13 @@ def create_op(
             raise HTTPException(status_code=404, detail="Usuario inexistente.")
         if db.scalar(select(Operador).where(Operador.user_id == body.user_id)):
             raise HTTPException(status_code=409, detail="Ese usuario ya está vinculado a otro operador.")
-    row = Operador(nombre=nombre, nombre_norm=norm, activo=body.activo, user_id=body.user_id)
+    row = Operador(
+        nombre=nombre,
+        nombre_norm=norm,
+        activo=body.activo,
+        agenda_id=body.agenda_id,
+        user_id=body.user_id,
+    )
     db.add(row)
     db.commit()
     row = db.scalar(
@@ -786,6 +798,7 @@ def patch_op(
     row.nombre = nombre
     row.nombre_norm = norm
     row.activo = body.activo
+    row.agenda_id = body.agenda_id
     row.user_id = body.user_id
     db.commit()
     row = db.scalar(
