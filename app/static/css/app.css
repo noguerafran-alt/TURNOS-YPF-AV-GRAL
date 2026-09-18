@@ -368,16 +368,19 @@ code { font-size: .85em; background: #EEF3F9; padding: .1em .35em; border-radius
   margin: 0 0 .55rem;
   padding: .55rem .75rem;
   box-sizing: border-box;
+  border: none;
+  box-shadow: none;
 }
 .agenda-card .fuel-banner__title { font-size: 1.05rem; }
 .agenda-card .fuel-banner__sub { font-size: .7rem; opacity: .95; }
 .agenda-card--jet .fuel-banner--jet {
-  border: 2px solid rgba(255,255,255,.38);
-  box-shadow: inset 4px 0 0 var(--fuel-avgas-bg, #C0392B);
+  border: none;
+  box-shadow: none;
 }
 .agenda-card--avgas .fuel-banner--avgas {
-  border: 2px solid rgba(255,255,255,.42);
-  background: #A93226 !important;
+  border: none;
+  box-shadow: none;
+  background: transparent !important; /* se funde con el card rojo */
 }
 .agenda-head .fuel-banner {
   width: min(100%, 22rem);
@@ -385,12 +388,13 @@ code { font-size: .85em; background: #EEF3F9; padding: .1em .35em; border-radius
   padding: .55rem .85rem;
 }
 .agenda-head--jet .fuel-banner--jet {
-  border: 2px solid rgba(255,255,255,.38);
-  box-shadow: inset 4px 0 0 var(--fuel-avgas-bg, #C0392B);
+  border: none;
+  box-shadow: none;
 }
 .agenda-head--avgas .fuel-banner--avgas {
-  border: 2px solid rgba(255,255,255,.42);
-  background: #A93226 !important;
+  border: none;
+  box-shadow: none;
+  background: transparent !important;
 }
 
 
