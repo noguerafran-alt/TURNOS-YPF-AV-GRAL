@@ -13,6 +13,15 @@ from sqlalchemy.orm import Session, selectinload
 from app.auth import require_admin, require_user
 from app.config import settings
 from app.database import get_db
+from app.scope import (
+    AVISO_SIN_AEROPLANTA,
+    apply_agenda_id_filter,
+    is_scope_empty,
+    require_agenda_access,
+    require_booking_agenda_access,
+    resolve_agenda_filter,
+    scoped_agendas,
+)
 from app.emails import booking_payload, send_confirmation
 from app.empresa_service import flag_matricula_otra_empresa
 from app.matricula import (
@@ -173,7 +182,8 @@ def _cliente_nombre(b: Booking) -> str:
     )
 
 
-def _day_bookings(db: Session, day: date, agenda_id: int | None) -> list[Booking]:
+def _day_bookings(db: Session, day: date, agenda_filter) -> list[Booking]:
+    """agenda_filter: None | int | set[int] from resolve_agenda_filter."""
     day_from, day_to = _day_bounds_utc(day)
     stmt = (
         select(Booking)
@@ -191,8 +201,7 @@ def _day_bookings(db: Session, day: date, agenda_id: int | None) -> list[Booking
         )
         .order_by(Booking.starts_at)
     )
-    if agenda_id:
-        stmt = stmt.where(Booking.agenda_id == agenda_id)
+    stmt = apply_agenda_id_filter(stmt, Booking.agenda_id, agenda_filter)
     return list(db.scalars(stmt).all())
 
 
@@ -227,14 +236,21 @@ def _ocupacion_grilla(db: Session, agendas: list[Agenda], day: date) -> dict:
     }
 
 
-def _flota_por_grado(db: Session, day: date, agenda_id: int | None) -> list[dict]:
+def _flota_por_grado(db: Session, day: date, agenda_filter) -> list[dict]:
     stmt = select(Abastecedora).where(Abastecedora.activo.is_(True)).order_by(
         Abastecedora.sort_order, Abastecedora.nombre
     )
-    if agenda_id:
+    if isinstance(agenda_filter, int):
         stmt = stmt.where(
-            or_(Abastecedora.agenda_id.is_(None), Abastecedora.agenda_id == agenda_id)
+            or_(Abastecedora.agenda_id.is_(None), Abastecedora.agenda_id == agenda_filter)
         )
+    elif isinstance(agenda_filter, set):
+        if not agenda_filter:
+            stmt = stmt.where(Abastecedora.agenda_id.is_(None))
+        else:
+            stmt = stmt.where(
+                or_(Abastecedora.agenda_id.is_(None), Abastecedora.agenda_id.in_(agenda_filter))
+            )
     rows = list(db.scalars(stmt).all())
     buckets: dict[str, dict] = {}
     for a in rows:
@@ -263,15 +279,13 @@ def _flota_por_grado(db: Session, day: date, agenda_id: int | None) -> list[dict
     return out
 
 
-def _build_dashboard(db: Session, day: date, agenda_id: int | None) -> dict:
-    agendas_q = select(Agenda).where(Agenda.is_active.is_(True)).order_by(
-        Agenda.sort_order, Agenda.name
-    )
-    if agenda_id:
-        agendas_q = agendas_q.where(Agenda.id == agenda_id)
-    agendas = list(db.scalars(agendas_q).all())
+def _build_dashboard(db: Session, day: date, agenda_filter, agendas: list[Agenda]) -> dict:
+    if isinstance(agenda_filter, int):
+        agendas = [a for a in agendas if a.id == agenda_filter]
+    elif isinstance(agenda_filter, set):
+        agendas = [a for a in agendas if a.id in agenda_filter]
 
-    bookings = _day_bookings(db, day, agenda_id)
+    bookings = _day_bookings(db, day, agenda_filter)
 
     def _count(st: str) -> int:
         return sum(1 for b in bookings if b.coordinacion_status == st)
@@ -344,7 +358,7 @@ def _build_dashboard(db: Session, day: date, agenda_id: int | None) -> dict:
     return {
         "ok": True,
         "date": day.isoformat(),
-        "agenda_id": agenda_id,
+        "agenda_id": agenda_filter if isinstance(agenda_filter, int) else None,
         "kpis": kpis,
         "volumen_por_grado": volumen_por_grado,
         "ocupacion": _ocupacion_grilla(db, agendas, day) if agendas else {
@@ -355,7 +369,7 @@ def _build_dashboard(db: Session, day: date, agenda_id: int | None) -> dict:
             "pct": 0,
             "label": "0 de 0 cupos",
         },
-        "flota": _flota_por_grado(db, day, agenda_id),
+        "flota": _flota_por_grado(db, day, agenda_filter),
         "uso_abastecedoras": uso_abastecedoras,
         "clientes": clientes_dia,
         "turnos": turnos_activos,
@@ -368,9 +382,7 @@ def coord_dashboard_page(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    agendas = db.scalars(
-        select(Agenda).where(Agenda.is_active.is_(True)).order_by(Agenda.sort_order, Agenda.name)
-    ).all()
+    agendas = scoped_agendas(db, admin)
     today = datetime.now(settings.tz).date()
     return templates.TemplateResponse(
         request,
@@ -379,6 +391,8 @@ def coord_dashboard_page(
             "user": admin,
             "agendas": agendas,
             "today": today.isoformat(),
+            "scope_empty": is_scope_empty(admin, db),
+            "scope_aviso": AVISO_SIN_AEROPLANTA,
         },
     )
 
@@ -390,12 +404,13 @@ def coord_dashboard_data(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    _ = admin
     try:
         day = date.fromisoformat(date_str) if date_str else datetime.now(settings.tz).date()
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="Fecha inválida.") from exc
-    return _build_dashboard(db, day, agenda_id)
+    agenda_filter = resolve_agenda_filter(admin, db, agenda_id)
+    agendas = scoped_agendas(db, admin)
+    return _build_dashboard(db, day, agenda_filter, agendas)
 
 
 # ============================================================
@@ -407,17 +422,26 @@ def coord_panel(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    agendas = db.scalars(
-        select(Agenda).where(Agenda.is_active.is_(True)).order_by(Agenda.sort_order, Agenda.name)
-    ).all()
-    operadores = db.scalars(
-        select(Operador)
-        .where(Operador.activo.is_(True))
-        .order_by(Operador.nombre)
-    ).all()
-    abastecedoras = db.scalars(
-        select(Abastecedora).where(Abastecedora.activo.is_(True)).order_by(Abastecedora.sort_order, Abastecedora.nombre)
-    ).all()
+    agendas = scoped_agendas(db, admin)
+    allowed_ids = {a.id for a in agendas}
+    scope_empty = is_scope_empty(admin, db)
+    op_stmt = select(Operador).where(Operador.activo.is_(True)).order_by(Operador.nombre)
+    ab_stmt = select(Abastecedora).where(Abastecedora.activo.is_(True)).order_by(
+        Abastecedora.sort_order, Abastecedora.nombre
+    )
+    if scope_empty:
+        operadores = []
+        abastecedoras = []
+    elif allowed_ids and admin.role != Role.NIVEL_2:
+        op_stmt = op_stmt.where(or_(Operador.agenda_id.is_(None), Operador.agenda_id.in_(allowed_ids)))
+        ab_stmt = ab_stmt.where(
+            or_(Abastecedora.agenda_id.is_(None), Abastecedora.agenda_id.in_(allowed_ids))
+        )
+        operadores = list(db.scalars(op_stmt).all())
+        abastecedoras = list(db.scalars(ab_stmt).all())
+    else:
+        operadores = list(db.scalars(op_stmt).all())
+        abastecedoras = list(db.scalars(ab_stmt).all())
     today = datetime.now(settings.tz).date()
     return templates.TemplateResponse(
         request,
@@ -425,6 +449,8 @@ def coord_panel(
         {
             "user": admin,
             "agendas": agendas,
+            "scope_empty": scope_empty,
+            "scope_aviso": AVISO_SIN_AEROPLANTA,
             "operadores": [
                 {
                     "id": o.id,
@@ -469,6 +495,7 @@ def coord_board(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="Fecha inválida.") from exc
 
+    agenda_filter = resolve_agenda_filter(admin, db, agenda_id)
     day_from, day_to = _day_bounds_utc(day)
 
     stmt = (
@@ -487,8 +514,7 @@ def coord_board(
         )
         .order_by(Booking.starts_at)
     )
-    if agenda_id:
-        stmt = stmt.where(Booking.agenda_id == agenda_id)
+    stmt = apply_agenda_id_filter(stmt, Booking.agenda_id, agenda_filter)
     if status_filter and status_filter.upper() in ACTIVE_COORD:
         stmt = stmt.where(Booking.coordinacion_status == status_filter.upper())
     if q.strip():
@@ -507,8 +533,7 @@ def coord_board(
         Booking.starts_at >= day_from,
         Booking.starts_at < day_to,
     )
-    if agenda_id:
-        base = base.where(Booking.agenda_id == agenda_id)
+    base = apply_agenda_id_filter(base, Booking.agenda_id, agenda_filter)
     all_day = db.scalars(base).all()
 
     def _count(st: str) -> int:
@@ -533,13 +558,21 @@ def list_abastecedoras(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
+    agenda_filter = resolve_agenda_filter(admin, db, agenda_id)
     stmt = select(Abastecedora).where(Abastecedora.activo.is_(True)).order_by(
         Abastecedora.sort_order, Abastecedora.nombre
     )
-    if agenda_id:
+    if isinstance(agenda_filter, int):
         stmt = stmt.where(
-            or_(Abastecedora.agenda_id.is_(None), Abastecedora.agenda_id == agenda_id)
+            or_(Abastecedora.agenda_id.is_(None), Abastecedora.agenda_id == agenda_filter)
         )
+    elif isinstance(agenda_filter, set):
+        if not agenda_filter:
+            stmt = stmt.where(Abastecedora.agenda_id.is_(None))
+        else:
+            stmt = stmt.where(
+                or_(Abastecedora.agenda_id.is_(None), Abastecedora.agenda_id.in_(agenda_filter))
+            )
     rows = db.scalars(stmt).all()
     try:
         ref_day = date.fromisoformat(day) if day else datetime.now(settings.tz).date()
@@ -690,6 +723,7 @@ def asignar(
     admin: User = Depends(require_admin),
 ):
     booking = _get_booking(db, booking_id)
+    require_booking_agenda_access(admin, db, booking)
     booking, ab, op = _asignar(db, booking, body, admin)
     return {
         "ok": True,
@@ -706,6 +740,7 @@ def reasignar(
     admin: User = Depends(require_admin),
 ):
     booking = _get_booking(db, booking_id)
+    require_booking_agenda_access(admin, db, booking)
     if booking.coordinacion_status != CoordinacionStatus.PROGRAMADO:
         raise HTTPException(status_code=409, detail="Solo se puede reasignar un turno programado.")
     booking, ab, op = _asignar(db, booking, body, admin)
@@ -724,6 +759,7 @@ def reconfirmar(
     admin: User = Depends(require_admin),
 ):
     booking = _get_booking(db, booking_id)
+    require_booking_agenda_access(admin, db, booking)
     _require_active(booking)
     booking.reconfirm_pregunte_en_persona = body.reconfirm_pregunte_en_persona
     booking.reconfirm_coincide_declarado = body.reconfirm_coincide_declarado
@@ -745,6 +781,7 @@ def abastecer(
     admin: User = Depends(require_admin),
 ):
     booking = _get_booking(db, booking_id)
+    require_booking_agenda_access(admin, db, booking)
     _require_active(booking)
     if booking.coordinacion_status != CoordinacionStatus.PROGRAMADO:
         raise HTTPException(status_code=409, detail="Solo un turno programado puede marcarse abastecido.")
@@ -782,6 +819,7 @@ def ausente(
     admin: User = Depends(require_admin),
 ):
     booking = _get_booking(db, booking_id)
+    require_booking_agenda_access(admin, db, booking)
     _require_active(booking)
     if booking.coordinacion_status != CoordinacionStatus.PROGRAMADO:
         raise HTTPException(status_code=409, detail="Solo un turno programado puede marcarse ausente.")
@@ -801,6 +839,7 @@ def cancelar_coord(
     admin: User = Depends(require_admin),
 ):
     booking = _get_booking(db, booking_id)
+    require_booking_agenda_access(admin, db, booking)
     if booking.status == BookingStatus.CANCELLED:
         return {"ok": True, "message": "Ese turno ya estaba cancelado."}
     if booking.coordinacion_status not in (
@@ -834,6 +873,7 @@ def crear_manual(
     agenda = db.get(Agenda, body.agenda_id)
     if agenda is None or not agenda.is_active:
         raise HTTPException(status_code=404, detail="Agenda inexistente.")
+    require_agenda_access(admin, db, agenda.id)
 
     cliente: User | None = None
     owner_id = admin.id
@@ -1012,17 +1052,32 @@ def agenda_calendar_page(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    agendas = db.scalars(
-        select(Agenda).where(Agenda.is_active.is_(True)).order_by(Agenda.sort_order, Agenda.name)
-    ).all()
-    operadores = db.scalars(
-        select(Operador).where(Operador.activo.is_(True)).order_by(Operador.nombre)
-    ).all()
-    abastecedoras = db.scalars(
-        select(Abastecedora).where(Abastecedora.activo.is_(True)).order_by(
-            Abastecedora.sort_order, Abastecedora.nombre
+    agendas = scoped_agendas(db, admin)
+    allowed_ids = {a.id for a in agendas}
+    scope_empty = is_scope_empty(admin, db)
+    op_stmt = select(Operador).where(Operador.activo.is_(True)).order_by(Operador.nombre)
+    ab_stmt = select(Abastecedora).where(Abastecedora.activo.is_(True)).order_by(
+        Abastecedora.sort_order, Abastecedora.nombre
+    )
+    if scope_empty:
+        operadores = []
+        abastecedoras = []
+    elif allowed_ids and admin.role != Role.NIVEL_2:
+        operadores = list(
+            db.scalars(
+                op_stmt.where(or_(Operador.agenda_id.is_(None), Operador.agenda_id.in_(allowed_ids)))
+            ).all()
         )
-    ).all()
+        abastecedoras = list(
+            db.scalars(
+                ab_stmt.where(
+                    or_(Abastecedora.agenda_id.is_(None), Abastecedora.agenda_id.in_(allowed_ids))
+                )
+            ).all()
+        )
+    else:
+        operadores = list(db.scalars(op_stmt).all())
+        abastecedoras = list(db.scalars(ab_stmt).all())
     today = datetime.now(settings.tz).date()
     return templates.TemplateResponse(
         request,
@@ -1030,6 +1085,8 @@ def agenda_calendar_page(
         {
             "user": admin,
             "agendas": agendas,
+            "scope_empty": scope_empty,
+            "scope_aviso": AVISO_SIN_AEROPLANTA,
             "operadores": [{"id": o.id, "name": o.nombre, "user_id": o.user_id} for o in operadores],
             "abastecedoras": [
                 {
@@ -1059,7 +1116,6 @@ def agenda_month_counts(
     admin: User = Depends(require_admin),
 ):
     """Conteos por día: asignados=PROGRAMADO, sin_asignar=PENDIENTE."""
-    _ = admin
     first = date(year, month, 1)
     if month == 12:
         nxt = date(year + 1, 1, 1)
@@ -1070,6 +1126,7 @@ def agenda_month_counts(
     # end of last day
     day_to = _day_bounds_utc(nxt - timedelta(days=1))[1]
 
+    agenda_filter = resolve_agenda_filter(admin, db, agenda_id)
     stmt = select(Booking).where(
         Booking.status == BookingStatus.CONFIRMED,
         Booking.coordinacion_status.in_(
@@ -1078,8 +1135,7 @@ def agenda_month_counts(
         Booking.starts_at >= day_from,
         Booking.starts_at < day_to,
     )
-    if agenda_id:
-        stmt = stmt.where(Booking.agenda_id == agenda_id)
+    stmt = apply_agenda_id_filter(stmt, Booking.agenda_id, agenda_filter)
 
     counts: dict[str, dict[str, int]] = {}
     for b in db.scalars(stmt).all():

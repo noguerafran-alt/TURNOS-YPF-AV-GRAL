@@ -100,6 +100,12 @@
      data-today="{{ today }}"
      data-operadores='{{ operadores | tojson }}'
      data-abastecedoras='{{ abastecedoras | tojson }}'>
+
+  {% if scope_empty %}
+  <div class="notice--info" role="status" style="background:#FDECEA;border-color:#C0392B;color:#7B1E1E;margin-bottom:1rem">
+    <strong>Asigná aeroplanta.</strong> {{ scope_aviso }}
+  </div>
+  {% endif %}
   <div class="page-head cal-head staff-page__head">
     <div>
       <h1>Agenda</h1>

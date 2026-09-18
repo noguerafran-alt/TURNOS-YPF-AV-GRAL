@@ -245,6 +245,26 @@ class InvitacionEmpresa(Base):
     )
 
 
+
+class UserAgenda(Base):
+    """Asignación de aeroplanta(s) a coordinador (nivel1) u operador.
+
+    Par único (user_id, agenda_id). Cascade al borrar user o agenda.
+    """
+
+    __tablename__ = "user_agendas"
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    agenda_id: Mapped[int] = mapped_column(
+        ForeignKey("agendas.id", ondelete="CASCADE"), primary_key=True
+    )
+
+    user: Mapped["User"] = relationship(back_populates="agenda_links")
+    agenda: Mapped["Agenda"] = relationship(back_populates="user_links")
+
+
 class Agenda(Base):
     """Una agenda = una sede + un producto (ej: San Fernando - AVGAS 100LL)."""
 

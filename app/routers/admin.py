@@ -14,6 +14,14 @@ from sqlalchemy.orm import Session, selectinload
 from app.auth import require_admin
 from app.config import settings
 from app.database import get_db
+from app.scope import (
+    AVISO_SIN_AEROPLANTA,
+    apply_agenda_id_filter,
+    is_scope_empty,
+    require_agenda_access,
+    resolve_agenda_filter,
+    scoped_agendas,
+)
 from app.models import Agenda, Booking, BookingStatus, Closure, ScheduleRule, User
 from app.slots import week_start
 from app.templating import templates
@@ -30,10 +38,12 @@ def _slugify(value: str) -> str:
     return value.strip("-")[:120]
 
 
-def _get_agenda(db: Session, agenda_id: int) -> Agenda:
+def _get_agenda(db: Session, agenda_id: int, user: User | None = None) -> Agenda:
     agenda = db.get(Agenda, agenda_id)
     if agenda is None:
         raise HTTPException(status_code=404, detail="Agenda inexistente.")
+    if user is not None:
+        require_agenda_access(user, db, agenda.id)
     return agenda
 
 
@@ -51,33 +61,37 @@ def _parse_local(value: str) -> datetime:
 # ============================================================
 @router.get("")
 def dashboard(request: Request, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
-    agendas = db.scalars(select(Agenda).order_by(Agenda.sort_order, Agenda.name)).all()
+    agendas = scoped_agendas(db, admin, active_only=False)
+    agenda_filter = resolve_agenda_filter(admin, db, None)
 
     now = datetime.now(UTC)
     week_end = now + timedelta(days=7)
 
+    turnos_semana_q = select(func.count(Booking.id)).where(
+        Booking.status == BookingStatus.CONFIRMED,
+        Booking.starts_at >= now,
+        Booking.starts_at < week_end,
+    )
+    turnos_semana_q = apply_agenda_id_filter(turnos_semana_q, Booking.agenda_id, agenda_filter)
+    turnos_total_q = select(func.count(Booking.id)).where(Booking.status == BookingStatus.CONFIRMED)
+    turnos_total_q = apply_agenda_id_filter(turnos_total_q, Booking.agenda_id, agenda_filter)
+
     stats = {
         "agendas": len(agendas),
         "clientes": db.scalar(select(func.count(User.id))),
-        "turnos_semana": db.scalar(
-            select(func.count(Booking.id)).where(
-                Booking.status == BookingStatus.CONFIRMED,
-                Booking.starts_at >= now,
-                Booking.starts_at < week_end,
-            )
-        ),
-        "turnos_total": db.scalar(
-            select(func.count(Booking.id)).where(Booking.status == BookingStatus.CONFIRMED)
-        ),
+        "turnos_semana": db.scalar(turnos_semana_q),
+        "turnos_total": db.scalar(turnos_total_q),
     }
 
-    proximos = db.scalars(
+    proximos_q = (
         select(Booking)
         .options(selectinload(Booking.agenda), selectinload(Booking.user))
         .where(Booking.status == BookingStatus.CONFIRMED, Booking.starts_at >= now)
         .order_by(Booking.starts_at)
         .limit(10)
-    ).all()
+    )
+    proximos_q = apply_agenda_id_filter(proximos_q, Booking.agenda_id, agenda_filter)
+    proximos = db.scalars(proximos_q).all()
 
     # Rango por defecto del formulario de exportación: el mes en curso
     today = datetime.now(settings.tz).date()
@@ -92,6 +106,8 @@ def dashboard(request: Request, db: Session = Depends(get_db), admin: User = Dep
             "user": admin,
             "export_from": today.replace(day=1).isoformat(),
             "export_to": today.isoformat(),
+            "scope_empty": is_scope_empty(admin, db),
+            "scope_aviso": AVISO_SIN_AEROPLANTA,
         },
     )
 
@@ -107,6 +123,11 @@ def create_agenda(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
+    if not admin.can_manage_users:
+        # nivel1 scoped: no alta de nuevas plantas
+        from app.scope import allowed_agenda_ids
+        if allowed_agenda_ids(admin, db) is not None:
+            raise HTTPException(status_code=403, detail="No podés crear aeroplantas nuevas.")
     slug = _slugify(f"{name} {product}") or _slugify(name)
 
     # Si el slug ya existe se le agrega un sufijo numérico
@@ -131,7 +152,7 @@ def agenda_detail(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    agenda = _get_agenda(db, agenda_id)
+    agenda = _get_agenda(db, agenda_id, admin)
     now = datetime.now(UTC)
 
     closures = db.scalars(
@@ -172,7 +193,7 @@ def agenda_save(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    agenda = _get_agenda(db, agenda_id)
+    agenda = _get_agenda(db, agenda_id, admin)
 
     agenda.name = name.strip()
     agenda.product = product.strip()
@@ -204,7 +225,7 @@ def add_rule(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    agenda = _get_agenda(db, agenda_id)
+    agenda = _get_agenda(db, agenda_id, admin)
 
     try:
         start = time.fromisoformat(start_time)
@@ -245,6 +266,7 @@ def delete_rule(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
+    require_agenda_access(admin, db, agenda_id)
     rule = db.get(ScheduleRule, rule_id)
     if rule and rule.agenda_id == agenda_id:
         db.delete(rule)
@@ -264,7 +286,7 @@ def add_closure(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    agenda = _get_agenda(db, agenda_id)
+    agenda = _get_agenda(db, agenda_id, admin)
     start = _parse_local(starts_at)
     end = _parse_local(ends_at)
 
@@ -286,6 +308,7 @@ def delete_closure(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
+    require_agenda_access(admin, db, agenda_id)
     closure = db.get(Closure, closure_id)
     if closure and closure.agenda_id == agenda_id:
         db.delete(closure)
@@ -410,7 +433,13 @@ def _export_range(desde: str | None, hasta: str | None) -> tuple[date, date]:
 
 
 def _query_bookings(
-    db: Session, *, agenda_id: int | None, start: date, end: date, estado: str
+    db: Session,
+    *,
+    agenda_id: int | None,
+    start: date,
+    end: date,
+    estado: str,
+    agenda_filter=None,
 ) -> list[Booking]:
     desde_utc = datetime.combine(start, time.min, tzinfo=settings.tz).astimezone(UTC)
     # `end` es inclusivo para el usuario: se suma un día para cubrirlo entero
@@ -425,6 +454,8 @@ def _query_bookings(
 
     if agenda_id is not None:
         query = query.where(Booking.agenda_id == agenda_id)
+    elif agenda_filter is not None:
+        query = apply_agenda_id_filter(query, Booking.agenda_id, agenda_filter)
     if estado == "confirmados":
         query = query.where(Booking.status == BookingStatus.CONFIRMED)
     elif estado == "cancelados":
@@ -485,7 +516,10 @@ def export_all_bookings(
 ):
     """Todos los turnos de todas las agendas en un rango de fechas."""
     start, end = _export_range(desde, hasta)
-    bookings = _query_bookings(db, agenda_id=None, start=start, end=end, estado=estado)
+    agenda_filter = resolve_agenda_filter(admin, db, None)
+    bookings = _query_bookings(
+        db, agenda_id=None, start=start, end=end, estado=estado, agenda_filter=agenda_filter
+    )
     filename = f"turnos_{start.isoformat()}_a_{end.isoformat()}.csv"
     return _csv_response(bookings, filename)
 
@@ -500,7 +534,7 @@ def export_agenda_bookings(
     admin: User = Depends(require_admin),
 ):
     """Turnos de una agenda puntual en un rango de fechas."""
-    agenda = _get_agenda(db, agenda_id)
+    agenda = _get_agenda(db, agenda_id, admin)
     start, end = _export_range(desde, hasta)
     bookings = _query_bookings(db, agenda_id=agenda.id, start=start, end=end, estado=estado)
     filename = f"turnos_{agenda.slug}_{start.isoformat()}_a_{end.isoformat()}.csv"
@@ -515,7 +549,7 @@ def agenda_bookings(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    agenda = _get_agenda(db, agenda_id)
+    agenda = _get_agenda(db, agenda_id, admin)
 
     try:
         reference = date.fromisoformat(d) if d else datetime.now(settings.tz).date()
