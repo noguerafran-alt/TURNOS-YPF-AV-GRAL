@@ -31,9 +31,8 @@
           {% set show_staff = user.is_operador or user.is_admin or user.can_manage_users %}
           {% if show_staff %}
             <details class="topbar__staff">
-              <summary class="topbar__staff-trigger">
+              <summary class="topbar__staff-trigger" aria-label="Menú">
                 <span class="topbar__staff-icon" aria-hidden="true">☰</span>
-                Staff
               </summary>
               <div class="topbar__staff-menu" role="menu">
                 {% if user.is_operador %}
