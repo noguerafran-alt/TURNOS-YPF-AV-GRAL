@@ -15,7 +15,16 @@ from app.models import MatriculaCombustible
 
 
 def normalize_matricula(value: str) -> str:
+    """Solo letras y números, en mayúsculas, sin espacios ni separadores."""
     return "".join(c for c in (value or "").upper().strip() if c.isalnum())
+
+
+def parse_matricula(value: str) -> str:
+    """Normaliza y exige matrícula no vacía. Lanza ValueError si inválida."""
+    key = normalize_matricula(value)
+    if not key:
+        raise ValueError("La matrícula solo puede tener letras y números.")
+    return key
 
 
 def normalize_grado(value: str) -> str:
@@ -77,14 +86,14 @@ class MatriculaLookup:
 
 
 def lookup_matricula(db: Session, raw: str) -> MatriculaLookup:
-    display = (raw or "").strip().upper()
     key = normalize_matricula(raw)
+    display = key
     if not key:
         return MatriculaLookup(
             found=False,
             primera_carga=True,
             unknown_matricula=True,
-            matricula=display,
+            matricula="",
             combustible=None,
             modelo=None,
             tipo=None,
@@ -144,7 +153,7 @@ def upsert_matricula_combustible(
 ) -> MatriculaCombustible:
     """Upsert al listado. En operación normal: SOLO al pasar a ABASTECIDO."""
     key = normalize_matricula(raw_matricula)
-    display = (raw_matricula or "").strip().upper() or key
+    display = key
     fuel = (combustible or "").strip()
     if not key or not fuel:
         raise ValueError("Matrícula y combustible son obligatorios para el upsert.")

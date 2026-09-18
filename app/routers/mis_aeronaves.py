@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_user, require_user
 from app.database import get_db
-from app.matricula import lookup_matricula, normalize_grado, normalize_matricula
+from app.matricula import lookup_matricula, normalize_grado, normalize_matricula, parse_matricula
 from app.models import User, UserAircraft
 from app.templating import templates
 
@@ -87,8 +87,8 @@ def mis_aeronaves_add(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    key = normalize_matricula(matricula)
-    display = (matricula or "").strip().upper() or key
+    key = parse_matricula(matricula)
+    display = key
     if not key:
         return RedirectResponse(
             f"/perfil/aeronaves?{urlencode({'error': 'Ingresá una matrícula válida'})}",
@@ -143,8 +143,8 @@ def mis_aeronaves_edit(
             status_code=303,
         )
 
-    key = normalize_matricula(matricula)
-    display = (matricula or "").strip().upper() or key
+    key = parse_matricula(matricula)
+    display = key
     if not key:
         return RedirectResponse(
             f"/perfil/aeronaves?{urlencode({'error': 'Ingresá una matrícula válida', 'edit': aircraft_id})}",

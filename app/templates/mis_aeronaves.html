@@ -57,9 +57,9 @@
       <div class="form-row">
         <div class="field">
           <label for="matricula">Matrícula *</label>
-          <input type="text" id="matricula" name="matricula" maxlength="40" required
+          <input type="text" id="matricula" name="matricula" class="js-matricula" data-matricula-input maxlength="40" required autocomplete="off"
                  value="{{ editing.matricula_display if editing else '' }}"
-                 placeholder="LV-XXX" autocomplete="off" />
+                 placeholder="LVXXX" autocomplete="off" />
         </div>
         <div class="field">
           <label for="modelo">Modelo</label>

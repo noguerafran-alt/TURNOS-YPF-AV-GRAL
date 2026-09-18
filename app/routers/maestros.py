@@ -18,7 +18,7 @@ from app.auth import require_admin
 from app.config import settings
 from app.database import get_db
 from app.emails import booking_payload, send_cancellation
-from app.matricula import normalize_grado, normalize_matricula
+from app.matricula import normalize_grado, normalize_matricula, parse_matricula
 from app.models import (
     ROLE_LABELS,
     Abastecedora,
@@ -228,10 +228,10 @@ class AeronaveBody(BaseModel):
     @field_validator("matricula")
     @classmethod
     def mat_ok(cls, v: str) -> str:
-        v = v.strip().upper()
-        if not normalize_matricula(v):
-            raise ValueError("Matrícula inválida.")
-        return v
+        try:
+            return parse_matricula(v)
+        except ValueError as e:
+            raise ValueError(str(e)) from e
 
 
 class CambiarGradoBody(BaseModel):
@@ -301,7 +301,7 @@ def create_aeronave(
     fuel = normalize_grado(body.combustible or "") or (body.combustible or "").strip() or None
     row = MatriculaCombustible(
         matricula=key,
-        matricula_display=body.matricula.strip().upper()[:40],
+        matricula_display=parse_matricula(body.matricula)[:40],
         combustible=fuel,
         modelo=(body.modelo or "").strip()[:80],
         tipo=(body.tipo or "").strip()[:60],
@@ -334,7 +334,7 @@ def patch_aeronave(
     if row is None:
         raise HTTPException(status_code=404, detail="Aeronave inexistente.")
     # Editar no cambia grado (usar Cambiar grado)
-    row.matricula_display = body.matricula.strip().upper()[:40]
+    row.matricula_display = parse_matricula(body.matricula)[:40]
     row.modelo = (body.modelo or "").strip()[:80]
     row.tipo = (body.tipo or "").strip()[:60]
     row.motor = (body.motor or "").strip()[:60]

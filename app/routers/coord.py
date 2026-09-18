@@ -19,6 +19,7 @@ from app.matricula import (
     grados_compatibles,
     lookup_matricula,
     normalize_grado,
+    parse_matricula,
     upsert_matricula_combustible,
 )
 from app.models import (
@@ -625,10 +626,10 @@ class ManualBody(BaseModel):
     @field_validator("aircraft")
     @classmethod
     def aircraft_ok(cls, v: str) -> str:
-        v = v.strip()
-        if not v:
-            raise ValueError("La matrícula es obligatoria.")
-        return v
+        try:
+            return parse_matricula(v)
+        except ValueError as e:
+            raise ValueError(str(e)) from e
 
     @field_validator("starts_at")
     @classmethod
@@ -890,7 +891,7 @@ def crear_manual(
                 starts_at=starts,
                 ends_at=ends,
                 status=BookingStatus.CONFIRMED,
-                aircraft=body.aircraft.strip().upper()[:40],
+                aircraft=parse_matricula(body.aircraft)[:40],
                 aircraft_model=(body.aircraft_model or "").strip()[:60],
                 liters=body.liters,
                 flight_number=(body.flight_number or "").strip().upper()[:20],
@@ -913,7 +914,7 @@ def crear_manual(
             starts_at=starts,
             ends_at=ends,
             status=BookingStatus.CONFIRMED,
-            aircraft=body.aircraft.strip().upper()[:40],
+            aircraft=parse_matricula(body.aircraft)[:40],
             aircraft_model=(body.aircraft_model or "").strip()[:60],
             liters=body.liters,
             flight_number=(body.flight_number or "").strip().upper()[:20],
