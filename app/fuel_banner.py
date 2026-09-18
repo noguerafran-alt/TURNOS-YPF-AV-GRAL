@@ -127,7 +127,8 @@ def build_fuel_banner(
     mat = _clean_part(matricula)
     tipo_clean = _clean_tipo(tipo, for_cliente=(audience == "cliente"))
     cli = _clean_part(cliente) if audience == "staff" else ""
-    code_txt = f"Código de color internacional: {color_code}" if color_code else ""
+    # Sin copy "Código de color internacional" — solo logo oficial.
+    code_txt = ""
 
     use_maestro = locked_by_maestro or variant == "maestro"
     if use_maestro and mat:
