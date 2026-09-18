@@ -90,7 +90,7 @@
     const mat = String(opts.matricula || '').trim();
     const tipo = cleanTipo(opts.tipo, audience === 'cliente');
     const cli = audience === 'staff' ? String(opts.cliente || '').trim() : '';
-    const codeTxt = colorCode ? ('Código de color internacional: ' + colorCode) : '';
+    const codeTxt = ''; // solo logo oficial; sin copy código de color
 
     let subline = '';
     if (locked && mat) {
