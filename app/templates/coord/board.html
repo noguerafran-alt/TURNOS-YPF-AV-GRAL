@@ -3,8 +3,7 @@
 
 {% block head %}
 <style>
-  .coord-wrap { max-width: 1200px; }
-  .coord-filters { display: flex; flex-wrap: wrap; gap: .75rem 1rem; align-items: flex-end; margin-bottom: 1.2rem; }
+  .coord-wrap { max-width: 1180px; }
   .coord-filters .field { margin: 0; min-width: 140px; }
   .coord-filters .field--grow { flex: 1; min-width: 160px; }
   .coord-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: .7rem; margin-bottom: 1.2rem; }
@@ -92,22 +91,21 @@
 {% endblock %}
 
 {% block content %}
-<div class="coord-wrap" id="coord-app"
+<div class="staff-page coord-wrap" id="coord-app"
      data-today="{{ today }}"
      data-operadores='{{ operadores | tojson }}'
      data-abastecedoras='{{ abastecedoras | tojson }}'>
-  <div class="panel-head">
+  <div class="panel-head staff-page__head">
     <div>
       <h1>Coordinación{% if agendas %} · <span id="coord-planta-label">{{ agendas[0].full_name }}</span>{% endif %}</h1>
       <p class="muted" style="margin:0">Gestión operativa del día — {{ user.role_label }}</p>
     </div>
-    <div style="display:flex;gap:.5rem;flex-wrap:wrap">
-      <a class="btn btn--outline btn--sm" href="/admin">Admin</a>
+    <div class="staff-page__actions">
       <button type="button" class="btn btn--accent btn--sm" id="btn-manual">+ Turno manual</button>
     </div>
   </div>
 
-  <div class="coord-filters panel" style="padding:1rem 1.2rem">
+  <div class="coord-filters staff-filters">
     <div class="field">
       <label for="f-date">Fecha</label>
       <input type="date" id="f-date" value="{{ today }}" />
