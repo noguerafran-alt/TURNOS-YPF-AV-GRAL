@@ -325,8 +325,13 @@
       btns.push(`<button type="button" class="btn btn--sm btn--accent" data-act="asignar" data-id="${b.id}">Asignar</button>`);
       btns.push(`<button type="button" class="btn btn--sm btn--danger" data-act="cancelar" data-id="${b.id}">Cancelar</button>`);
     } else if (b.coordinacion_status === 'PROGRAMADO') {
-      const locked = b.badge_primera_carga && !b.combustible_reconfirmado_en_persona;
-      btns.push(`<button type="button" class="btn btn--sm ${locked ? 'is-disabled' : ''}" data-act="abastecer" data-id="${b.id}" ${locked ? 'disabled title="Primero reconfirmá el combustible en persona."' : ''}>Abastecido</button>`);
+      const needsReconfirm = b.badge_primera_carga && !b.combustible_reconfirmado_en_persona;
+      const needsFoto = !b.has_toma_foto;
+      const locked = needsReconfirm || needsFoto;
+      let lockTitle = '';
+      if (needsReconfirm) lockTitle = 'Primero reconfirmá el combustible en persona.';
+      else if (needsFoto) lockTitle = 'Hace falta foto de toma.';
+      btns.push(`<button type="button" class="btn btn--sm ${locked ? 'is-disabled' : ''}" data-act="abastecer" data-id="${b.id}" ${locked ? `disabled title="${lockTitle}"` : ''}>Abastecido</button>`);
       btns.push(`<button type="button" class="btn btn--sm btn--outline" data-act="ausente" data-id="${b.id}">No se presentó</button>`);
       btns.push(`<button type="button" class="btn btn--sm btn--outline" data-act="reasignar" data-id="${b.id}">Reasignar</button>`);
       btns.push(`<button type="button" class="btn btn--sm btn--danger" data-act="cancelar" data-id="${b.id}">Cancelar</button>`);
