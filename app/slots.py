@@ -93,17 +93,22 @@ def _overlaps(a_start: datetime, a_end: datetime, b_start: datetime, b_end: date
 def build_week(
     db: Session,
     agenda: Agenda,
-    monday: date,
+    start_day: date,
     *,
     user_id: int | None = None,
     now: datetime | None = None,
     include_past_days: bool = True,
+    days: int = 7,
 ) -> list[DaySlots]:
-    """Devuelve los 7 días de la semana que arranca en `monday`."""
-    now = now or datetime.now(UTC)
+    """Devuelve `days` días a partir de `start_day` (inclusive).
 
-    week_from = local_dt(monday, datetime.min.time()).astimezone(UTC)
-    week_to = (local_dt(monday + timedelta(days=8), datetime.min.time())).astimezone(UTC)
+    Ya no arranca en lunes: el inicio es el día pedido (hoy / datepicker).
+    """
+    now = now or datetime.now(UTC)
+    days = max(1, int(days))
+
+    week_from = local_dt(start_day, datetime.min.time()).astimezone(UTC)
+    week_to = (local_dt(start_day + timedelta(days=days + 1), datetime.min.time())).astimezone(UTC)
 
     rules = db.scalars(
         select(ScheduleRule).where(ScheduleRule.agenda_id == agenda.id)
@@ -142,8 +147,8 @@ def build_week(
     bookable_to = now + timedelta(days=agenda.horizon_days)
 
     week: list[DaySlots] = []
-    for offset in range(7):
-        day = monday + timedelta(days=offset)
+    for offset in range(days):
+        day = start_day + timedelta(days=offset)
         day_rules = [r for r in rules if r.weekday == day.weekday()]
         slots: list[Slot] = []
 
@@ -203,7 +208,7 @@ def find_slot(
     local_day = starts_at.astimezone(settings.tz).date()
 
     for day_slots in build_week(
-        db, agenda, week_start(local_day), user_id=user_id, now=now
+        db, agenda, local_day, user_id=user_id, now=now, days=1
     ):
         for slot in day_slots.slots:
             if slot.starts_at == starts_at:
