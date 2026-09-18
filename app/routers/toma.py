@@ -31,6 +31,7 @@ nombre del archivo — sale de unir `TomaFoto.matricula` contra el maestro, que 
 la fuente de verdad del producto.
 """
 import datetime
+import hmac
 import json
 import secrets
 from pathlib import Path
@@ -198,7 +199,11 @@ def estado(equipo: str = "", x_toma_token: str = Header(default="")):
     trabar un equipo, que es ruidoso y se nota al toque. La polaridad del sistema
     acota el daño de un token comprometido.
     """
-    if not settings.toma_esp_token or x_toma_token != settings.toma_esp_token:
+    # compare_digest evita el timing side-channel de "!="; normalizamos a ""
+    # porque explota si algún lado es None.
+    if not settings.toma_esp_token or not hmac.compare_digest(
+        x_toma_token or "", settings.toma_esp_token
+    ):
         raise HTTPException(status_code=401, detail="Token inválido.")
     return JSONResponse(content=toma_traba.estado(equipo))
 

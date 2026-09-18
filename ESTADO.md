@@ -57,6 +57,26 @@ Detalle completo en [`docs/VERIFICAR_TOMA.md`](docs/VERIFICAR_TOMA.md).
    y el código de la abastecedora. El ESP se cuelga del hotspot de la tablet del
    operario.
 
+---
+
+## Fixes de seguridad 2026-09-18
+
+Tres fixes puntuales, sin tocar `toma_veredicto.py`:
+
+1. **Stored XSS en `important_info`.** Lo escribe un admin y se renderizaba con
+   `| replace("\n", "<br>") | safe` sin escapar antes: HTML del campo quedaba
+   marcado como seguro. Ahora es `| e | replace("\n", "<br>"|safe)`, sin `| safe`
+   final, en `app/templates/agenda.html`,
+   `app/templates/emails/confirmation.html` y `app/templates/emails/reminder.html`.
+   El `|safe` va en el ARGUMENTO: `| e` devuelve un `Markup` y
+   `Markup.replace()` escapa lo que le pasás, así que `| e | replace("\n", "<br>")` a secas escapa el `<br>` y rompe los saltos de línea.
+2. **Timing side-channel en el token del ESP.** `app/routers/toma.py` comparaba
+   el header `x-toma-token` con `!=`. Pasado a `hmac.compare_digest`,
+   normalizando el header a `""` para no explotar con `None`.
+3. **Bypass de `_safe_next` con backslash.** `app/routers/auth_routes.py`
+   dejaba pasar `/\evil.com` (el navegador lo normaliza a `//evil.com`). Se
+   rechaza también cuando el segundo carácter es `\`.
+
 ### Lo que NO está hecho, y por qué
 
 **El clasificador de la toma no existe.** La foto se guarda como evidencia y

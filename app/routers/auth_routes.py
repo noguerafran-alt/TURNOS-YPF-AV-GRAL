@@ -28,7 +28,9 @@ def _safe_next(raw: str | None) -> str:
     if not raw:
         return "/"
     parsed = urlparse(raw)
-    if parsed.scheme or parsed.netloc or not raw.startswith("/"):
+    # El navegador normaliza "/\" a "//", que urlparse no detecta como netloc
+    # externo: sin este chequeo "/\evil.com" cuela como ruta interna.
+    if parsed.scheme or parsed.netloc or not raw.startswith("/") or raw.startswith("/\\"):
         return "/"
     return raw
 
