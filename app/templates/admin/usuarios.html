@@ -2,13 +2,18 @@
 {% block title %}Usuarios{% endblock %}
 
 {% block content %}
+<div class="staff-page">
   <nav class="breadcrumb"><a href="/admin">Panel</a> <span>/</span> <span>Usuarios</span></nav>
 
-  <h1>Usuarios</h1>
+  <div class="panel-head staff-page__head">
+    <div>
+      <h1>Usuarios</h1>
   <p class="muted">
     Nivel 1 opera las aeroplantas y ve los turnos. Nivel 2 hace todo eso y además
     administra usuarios.
   </p>
+    </div>
+  </div>
 
   {% if ok %}<p class="alert alert--ok">{{ ok }}</p>{% endif %}
   {% if error %}<p class="alert alert--error">{{ error }}</p>{% endif %}
@@ -118,4 +123,5 @@
       emergencia para no quedarse afuera del panel.
     </p>
   {% endif %}
+</div>
 {% endblock %}

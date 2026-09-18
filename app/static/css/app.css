@@ -87,7 +87,7 @@ code { font-size: .85em; background: #EEF3F9; padding: .1em .35em; border-radius
 /* ===== Topbar =====
    Fondo claro a propósito: el isologo de YPF es azul sólido y se pierde contra
    un header oscuro (contraste ~2:1). Sobre blanco da 6.5:1, nítido y prolijo.
-   Staff links viven en ☰ dropdown para no apretar la fila cliente. */
+   Links de operación viven en el menú ☰ para no apretar la fila cliente. */
 .topbar {
   background: var(--surface); color: var(--text); position: sticky; top: 0; z-index: 50;
   border-bottom: 1px solid var(--border); box-shadow: var(--shadow-sm);
@@ -131,7 +131,7 @@ code { font-size: .85em; background: #EEF3F9; padding: .1em .35em; border-radius
 .linklike { background: none; border: 0; color: var(--muted); font: inherit; font-size: .92rem; cursor: pointer; padding: 0; }
 .linklike:hover { color: var(--danger); }
 
-/* Staff dropdown (☰) — ámbar YPF, KEEP todos los links staff */
+/* Menú ☰ (ámbar YPF) — KEEP todos los links de operación */
 .topbar__staff { position: relative; }
 .topbar__staff-trigger {
   list-style: none; cursor: pointer;
@@ -595,8 +595,88 @@ fieldset.field legend { font-family: var(--font-head); font-size: .88rem; font-w
   }
 }
 
-.panel-head { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; justify-content: space-between; }
-.panel-head h1 { margin-bottom: 0; }
+/* ===== Staff pages (☰): headers / filtros / cards unificados YPF ===== */
+.staff-page { max-width: 1180px; margin: 0 auto; }
+.panel-head,
+.staff-page__head {
+  display: flex; flex-wrap: wrap; gap: 1rem;
+  align-items: flex-end; justify-content: space-between;
+  margin-bottom: 1.1rem;
+}
+.panel-head h1,
+.staff-page__head h1,
+.staff-page h1 {
+  margin: 0;
+  padding-bottom: .35rem;
+  border-bottom: 3px solid var(--navy-800);
+  display: inline-block;
+  font-family: var(--font-head);
+  color: var(--text);
+}
+.panel-head .muted,
+.staff-page__head .muted { margin: .35rem 0 0; max-width: 62ch; }
+.staff-page__actions {
+  display: flex; flex-wrap: wrap; gap: .5rem; align-items: center;
+}
+.staff-filters,
+.staff-page__filters {
+  display: flex; flex-wrap: wrap; gap: .75rem 1rem; align-items: flex-end;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.2rem;
+  margin-bottom: 1.1rem;
+  box-shadow: var(--elev-1);
+  transition: box-shadow var(--motion-med) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
+}
+.staff-filters:hover,
+.staff-page__filters:hover {
+  border-color: rgba(4,81,221,.14);
+  box-shadow: var(--elev-2);
+}
+.staff-filters .field,
+.staff-page__filters .field { margin: 0; min-width: 140px; }
+.staff-filters .field--grow,
+.staff-page__filters .field--grow { flex: 1; min-width: 160px; }
+.staff-page .panel,
+.staff-page .dash-card,
+.staff-page .mae-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--elev-1);
+}
+.staff-page .panel {
+  padding: 1.15rem 1.25rem;
+  margin-bottom: 1rem;
+  transition: box-shadow var(--motion-med) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
+}
+.staff-page .panel:hover {
+  box-shadow: var(--elev-2);
+  border-color: rgba(4,81,221,.14);
+}
+.staff-page .panel h2,
+.staff-page .dash-card h2 {
+  margin: 0 0 .85rem;
+  font-size: 1.05rem;
+  color: var(--text);
+}
+.staff-page .table { width: 100%; }
+.staff-page .breadcrumb { margin-bottom: .75rem; }
+.staff-page .stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: .7rem; margin: 0 0 1.1rem; padding: 0; list-style: none;
+}
+.staff-page .stats li {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: .9rem .85rem .75rem; box-shadow: var(--elev-1);
+  border-top: 4px solid var(--navy-800);
+  transition: transform var(--motion-med) var(--ease-out), box-shadow var(--motion-med) var(--ease-out);
+}
+.staff-page .stats li:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--elev-hover);
+}
 
 .input--readonly {
   background: #EEF3F9;

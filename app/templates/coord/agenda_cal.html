@@ -96,11 +96,11 @@
 {% endblock %}
 
 {% block content %}
-<div class="cal-wrap" id="agenda-app"
+<div class="staff-page cal-wrap" id="agenda-app"
      data-today="{{ today }}"
      data-operadores='{{ operadores | tojson }}'
      data-abastecedoras='{{ abastecedoras | tojson }}'>
-  <div class="cal-head">
+  <div class="cal-head staff-page__head">
     <div>
       <h1>Agenda</h1>
       <p class="muted" style="margin:0">Calendario operativo — {{ user.role_label }}</p>
@@ -127,14 +127,14 @@
 
   <div class="cal-grid" id="cal-grid" aria-label="Calendario mensual"></div>
 
-  <div class="day-bar">
+  <div class="day-bar staff-filters">
     <div class="field">
       <label for="f-date">Fecha</label>
       <input type="date" id="f-date" value="{{ today }}" />
     </div>
     <button type="button" class="btn btn--outline btn--sm btn--hoy" id="btn-hoy">Hoy</button>
     <span class="muted" id="day-label" style="flex:1"></span>
-    <button type="button" class="btn btn--sm" id="btn-manual">+ Turno manual (teléfono / mostrador)</button>
+    <button type="button" class="btn btn--sm" id="btn-manual">+ Turno manual</button>
   </div>
 
   <div class="day-cols">

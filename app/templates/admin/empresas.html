@@ -2,13 +2,18 @@
 {% block title %}Empresas{% endblock %}
 
 {% block content %}
+<div class="staff-page">
   <nav class="breadcrumb"><a href="/admin">Panel</a> <span>/</span> <span>Empresas</span></nav>
 
-  <h1>Empresas</h1>
+  <div class="panel-head staff-page__head">
+    <div>
+      <h1>Empresas</h1>
   <p class="muted">
     Creá una organización cliente y asigná el primer admin. Esa persona invita al resto por email;
     al entrar con Google quedan vinculados.
   </p>
+    </div>
+  </div>
 
   {% if ok %}<p class="alert alert--ok">{{ ok }}</p>{% endif %}
   {% if error %}<p class="alert alert--error">{{ error }}</p>{% endif %}
@@ -74,4 +79,5 @@
       <p class="muted">Todavía no hay empresas cargadas.</p>
     {% endif %}
   </section>
+</div>
 {% endblock %}

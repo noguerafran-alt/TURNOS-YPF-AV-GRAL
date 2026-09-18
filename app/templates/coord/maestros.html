@@ -56,12 +56,12 @@
 {% endblock %}
 
 {% block content %}
-<div class="mae-wrap" id="mae-app"
+<div class="staff-page mae-wrap" id="mae-app"
      data-can-manage="{{ '1' if can_manage_users else '0' }}"
      data-hangares='{{ hangares | tojson }}'
      data-roles='{{ roles | tojson }}'
      data-role-labels='{{ role_labels | tojson }}'>
-  <div class="panel-head">
+  <div class="panel-head staff-page__head">
     <div>
       <h1>Maestros</h1>
       <p class="muted" style="margin:.2rem 0 0;max-width:62ch">
@@ -90,7 +90,7 @@
 
   <!-- Aeronaves -->
   <section class="mae-panel panel" id="panel-aeronaves" role="tabpanel">
-    <div class="mae-toolbar">
+    <div class="mae-toolbar staff-filters">
       <h2 style="margin:0;flex:1" id="ae-title">Maestro de matrículas</h2>
       <div class="field field--grow"><label for="ae-q">Buscar</label><input type="search" id="ae-q" placeholder="Matrícula / cliente" /></div>
       <div class="field"><label for="ae-grado">Grado</label>
@@ -108,7 +108,7 @@
 
   <!-- Hangares -->
   <section class="mae-panel panel" id="panel-hangares" role="tabpanel" hidden>
-    <div class="mae-toolbar">
+    <div class="mae-toolbar staff-filters">
       <h2 style="margin:0;flex:1" id="hg-title">Hangares</h2>
       <button type="button" class="btn btn--sm" id="hg-add">+ Hangar</button>
     </div>
@@ -120,7 +120,7 @@
 
   <!-- Abastecedoras -->
   <section class="mae-panel panel" id="panel-abastecedoras" role="tabpanel" hidden>
-    <div class="mae-toolbar">
+    <div class="mae-toolbar staff-filters">
       <h2 style="margin:0;flex:1" id="ab-title">Abastecedoras</h2>
       <button type="button" class="btn btn--sm" id="ab-add">+ Abastecedora</button>
     </div>
@@ -132,7 +132,7 @@
 
   <!-- Operadores -->
   <section class="mae-panel panel" id="panel-operadores" role="tabpanel" hidden>
-    <div class="mae-toolbar">
+    <div class="mae-toolbar staff-filters">
       <h2 style="margin:0;flex:1" id="op-title">Operadores</h2>
       <button type="button" class="btn btn--sm" id="op-add">+ Operador</button>
     </div>
@@ -145,7 +145,7 @@
 
   <!-- Usuarios -->
   <section class="mae-panel panel" id="panel-usuarios" role="tabpanel" hidden>
-    <div class="mae-toolbar">
+    <div class="mae-toolbar staff-filters">
       <h2 style="margin:0;flex:1" id="us-title">Usuarios</h2>
       <div class="field field--grow"><label for="us-q">Buscar</label><input type="search" id="us-q" placeholder="Email / nombre" /></div>
       {% if can_manage_users %}
