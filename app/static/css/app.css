@@ -134,8 +134,21 @@ code { font-size: .85em; background: #EEF3F9; padding: .1em .35em; border-radius
    .topbar__nav a tiene más especificidad que .btn solo, así que gana. */
 .topbar__nav a.btn, .topbar__nav a.btn:hover { color: #fff; }
 .topbar__admin { color: var(--accent-dark) !important; font-weight: 700; }
-.topbar__logout { margin: 0; margin-left: .25rem; }
-.linklike { background: none; border: 0; color: var(--muted); font: inherit; font-size: .92rem; cursor: pointer; padding: 0; }
+/* Acciones (☰ + Salir) en un cluster nowrap para que Salir no quede solo en otra línea */
+.topbar__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: .55rem;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+}
+.topbar__logout {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  flex-shrink: 0;
+}
+.linklike { background: none; border: 0; color: var(--muted); font: inherit; font-size: .92rem; cursor: pointer; padding: 0; white-space: nowrap; }
 .linklike:hover { color: var(--danger); }
 
 /* Menú ☰ (ámbar YPF) — KEEP todos los links de operación */
@@ -738,8 +751,14 @@ fieldset.field legend { font-family: var(--font-head); font-size: .88rem; font-w
 
 /* ===== Responsive ===== */
 @media (max-width: 640px) {
-  .topbar__inner { min-height: 56px; padding-block: .75rem; }
-  .topbar__nav { gap: 16px; font-size: .85rem; }
+  .topbar__inner { min-height: 56px; padding-block: .75rem; gap: .65rem; }
+  .topbar__nav {
+    gap: 12px;
+    font-size: .85rem;
+    /* Si no entra todo, wrap por grupos; actions (☰+Salir) no se parten */
+    row-gap: .45rem;
+  }
+  .topbar__actions { gap: .45rem; }
   .topbar__staff-menu { right: auto; left: 0; }
   .slots { grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: .45rem; padding: .8rem; }
   .slot { min-height: 48px; font-size: .95rem; }

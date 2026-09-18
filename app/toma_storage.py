@@ -55,3 +55,29 @@ async def save_toma_upload(*, matricula: str, upload: UploadFile) -> tuple[str, 
     dest.write_bytes(data)
     # Guardamos path absoluto estable para Render
     return str(dest), digest
+
+def booking_has_toma_foto(db, booking_id: int) -> bool:
+    """True si hay ≥1 foto de toma asociada al turno."""
+    from sqlalchemy import select
+    from app.models import TomaFoto
+
+    return (
+        db.scalar(select(TomaFoto.id).where(TomaFoto.booking_id == booking_id).limit(1))
+        is not None
+    )
+
+
+def toma_foto_counts_by_booking(db, booking_ids: list[int]) -> dict[int, int]:
+    """booking_id → cantidad de fotos (solo ids con al menos una)."""
+    if not booking_ids:
+        return {}
+    from sqlalchemy import func, select
+    from app.models import TomaFoto
+
+    rows = db.execute(
+        select(TomaFoto.booking_id, func.count())
+        .where(TomaFoto.booking_id.in_(booking_ids))
+        .group_by(TomaFoto.booking_id)
+    ).all()
+    return {int(bid): int(n) for bid, n in rows if bid is not None}
+

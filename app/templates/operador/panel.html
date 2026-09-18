@@ -152,7 +152,12 @@
       ...opts,
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.detail || 'Error de red');
+    if (!res.ok) {
+      const d = data.detail;
+      const msg = typeof d === 'string' ? d
+        : (Array.isArray(d) ? d.map((x) => x.msg || JSON.stringify(x)).join('; ') : 'Error de red');
+      throw new Error(msg);
+    }
     return data;
   }
 
@@ -173,7 +178,12 @@
     }
     empty.hidden = true;
     list.innerHTML = bookings.map((b) => {
-      const locked = b.badge_primera_carga && !b.combustible_reconfirmado_en_persona;
+      const needsReconfirm = b.badge_primera_carga && !b.combustible_reconfirmado_en_persona;
+      const needsFoto = !b.has_toma_foto;
+      const locked = needsReconfirm || needsFoto;
+      let lockTitle = '';
+      if (needsReconfirm) lockTitle = 'Primero reconfirmá el combustible en persona.';
+      else if (needsFoto) lockTitle = 'Hace falta foto de toma.';
       return `
         <article class="op-row" data-id="${b.id}">
           <div class="op-row__time">${escapeHtml(b.hora)}</div>
@@ -184,12 +194,13 @@
           <div>
             ${fuelChip(b.combustible_declarado)}
             ${b.badge_primera_carga ? '<span class="chip chip--primera">Primera carga</span>' : ''}${b.matricula_otra_empresa ? '<span class="chip chip--otra-empresa">Otra empresa</span>' : ''}
+            ${needsFoto ? '<span class="chip chip--primera">Sin foto toma</span>' : ''}
           </div>
           <div class="op-row__meta">${b.liters != null ? escapeHtml(String(b.liters)) + ' L' : '—'}</div>
           <div class="op-row__meta">${escapeHtml(b.abastecedora || '—')}<br/><span class="chip chip--programado">PROGRAMADO</span></div>
           <div class="op-row__actions">
             <button type="button" class="btn btn--sm btn--outline" data-act="detalle" data-id="${b.id}">Detalle</button>
-            <button type="button" class="btn btn--sm ${locked ? 'is-disabled' : ''}" data-act="abastecer" data-id="${b.id}" ${locked ? 'disabled title="Primero reconfirmá el combustible en persona."' : ''}>Abastecido</button>
+            <button type="button" class="btn btn--sm ${locked ? 'is-disabled' : ''}" data-act="abastecer" data-id="${b.id}" ${locked ? `disabled title="${lockTitle}"` : ''}>Abastecido</button>
             <button type="button" class="btn btn--sm btn--outline" data-act="ausente" data-id="${b.id}">Ausente</button>
           </div>
         </article>`;
@@ -206,6 +217,9 @@
       <p><strong>${escapeHtml(b.hora)}</strong> · ${escapeHtml(b.aircraft || '—')} · ${escapeHtml(b.agenda_name || '')}</p>
       <p>Litros: ${b.liters != null ? escapeHtml(String(b.liters)) : '—'} · Abastecedora: ${escapeHtml(b.abastecedora || '—')}</p>
       ${b.notes ? `<p class="muted">Notas: ${escapeHtml(b.notes)}</p>` : ''}
+      ${b.has_toma_foto
+        ? '<p class="muted" style="color:var(--ok)">✓ Hay foto de toma para este turno.</p>'
+        : '<p class="muted" style="color:var(--danger)">Hace falta foto de toma (escaneá el QR y subí la foto) antes de marcar abastecido.</p>'}
       ${needs ? `
         <div class="op-check">
           <strong>Reconfirmación de combustible (obligatoria)</strong>

@@ -44,6 +44,7 @@ from app.models import (
 )
 from app.routers.bookings import lock_agenda
 from app.slots import SlotStatus, find_slot
+from app.toma_storage import booking_has_toma_foto, toma_foto_counts_by_booking
 from app.templating import templates
 
 router = APIRouter(tags=["coordinacion"])
@@ -63,12 +64,12 @@ def _day_bounds_utc(day: date) -> tuple[datetime, datetime]:
     return start_local.astimezone(UTC), end_local.astimezone(UTC)
 
 
-def _booking_json(b: Booking) -> dict:
+def _booking_json(b: Booking, *, has_toma_foto: bool | None = None) -> dict:
     local = b.starts_at.astimezone(settings.tz)
     ab = b.abastecedora
     op = b.operador
     user = b.user
-    return {
+    data = {
         "id": b.id,
         "starts_at": b.starts_at.isoformat(),
         "hora": local.strftime("%H:%M"),
@@ -110,6 +111,9 @@ def _booking_json(b: Booking) -> dict:
         "reconfirmado_at": b.reconfirmado_at.isoformat() if b.reconfirmado_at else None,
         "cancelled_at": b.cancelled_at.isoformat() if b.cancelled_at else None,
     }
+    if has_toma_foto is not None:
+        data["has_toma_foto"] = bool(has_toma_foto)
+    return data
 
 
 def _get_booking(db: Session, booking_id: int) -> Booking:
@@ -524,7 +528,10 @@ def coord_board(
         )
 
     rows = db.scalars(stmt).all()
-    items = [_booking_json(b) for b in rows]
+    counts = toma_foto_counts_by_booking(db, [b.id for b in rows])
+    items = [
+        _booking_json(b, has_toma_foto=counts.get(b.id, 0) > 0) for b in rows
+    ]
 
     # KPIs sobre el día/agenda sin filtro de estado/q (salvo agenda+date)
     base = select(Booking).where(
@@ -797,6 +804,12 @@ def abastecer(
                 status_code=409,
                 detail="Primero reconfirmá el combustible en persona.",
             )
+
+    if not booking_has_toma_foto(db, booking.id):
+        raise HTTPException(
+            status_code=409,
+            detail="Hace falta al menos 1 foto de toma antes de marcar abastecido.",
+        )
 
     booking.coordinacion_status = CoordinacionStatus.ABASTECIDO
     booking.abastecido_at = datetime.now(UTC)

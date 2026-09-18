@@ -31,36 +31,38 @@
           <a href="/mis-turnos">Mis turnos</a>
           <a href="/perfil">Mi perfil</a>
           {% set show_staff = user.is_operador or user.is_admin or user.can_manage_users %}
-          {% if show_staff %}
-            <details class="topbar__staff">
-              <summary class="topbar__staff-trigger" aria-label="Menú staff">
-                <span class="topbar__staff-icon" aria-hidden="true">☰</span>
-              </summary>
-              <div class="topbar__staff-menu" role="menu">
-                {% set nav_dash = path.startswith('/coord/dashboard') %}
-                {% set nav_agenda = path.startswith('/coord/agenda') %}
-                {% set nav_mae = path.startswith('/coord/maestros') %}
-                {% set nav_coord = path.startswith('/coord') and not nav_dash and not nav_agenda and not nav_mae %}
-                {% if user.is_operador %}
-                  <a class="topbar__admin{% if path == '/operador' or path.startswith('/operador/') %} is-active{% endif %}" role="menuitem" href="/operador">Operador</a>
-                {% endif %}
-                {% if user.is_admin %}
-                  <a class="topbar__admin{% if nav_dash %} is-active{% endif %}" role="menuitem" href="/coord/dashboard">Dashboard</a>
-                  <a class="topbar__admin{% if nav_coord %} is-active{% endif %}" role="menuitem" href="/coord">Coordinación</a>
-                  <a class="topbar__admin{% if nav_agenda %} is-active{% endif %}" role="menuitem" href="/coord/agenda">Agenda</a>
-                  <a class="topbar__admin{% if nav_mae %} is-active{% endif %}" role="menuitem" href="/coord/maestros">Maestros</a>
-                  <a class="topbar__admin{% if path == '/admin' %} is-active{% endif %}" role="menuitem" href="/admin">Panel</a>
-                {% endif %}
-                {% if user.can_manage_users %}
-                  <a class="topbar__admin{% if path.startswith('/admin/empresas') %} is-active{% endif %}" role="menuitem" href="/admin/empresas">Empresas</a>
-                  <a class="topbar__admin{% if path.startswith('/admin/usuarios') %} is-active{% endif %}" role="menuitem" href="/admin/usuarios">Usuarios</a>
-                {% endif %}
-              </div>
-            </details>
-          {% endif %}
-          <form action="/auth/logout" method="post" class="topbar__logout">
-            <button type="submit" class="linklike">Salir</button>
-          </form>
+          <div class="topbar__actions">
+            {% if show_staff %}
+              <details class="topbar__staff">
+                <summary class="topbar__staff-trigger" aria-label="Menú staff">
+                  <span class="topbar__staff-icon" aria-hidden="true">☰</span>
+                </summary>
+                <div class="topbar__staff-menu" role="menu">
+                  {% set nav_dash = path.startswith('/coord/dashboard') %}
+                  {% set nav_agenda = path.startswith('/coord/agenda') %}
+                  {% set nav_mae = path.startswith('/coord/maestros') %}
+                  {% set nav_coord = path.startswith('/coord') and not nav_dash and not nav_agenda and not nav_mae %}
+                  {% if user.is_operador %}
+                    <a class="topbar__admin{% if path == '/operador' or path.startswith('/operador/') %} is-active{% endif %}" role="menuitem" href="/operador">Operador</a>
+                  {% endif %}
+                  {% if user.is_admin %}
+                    <a class="topbar__admin{% if nav_dash %} is-active{% endif %}" role="menuitem" href="/coord/dashboard">Dashboard</a>
+                    <a class="topbar__admin{% if nav_coord %} is-active{% endif %}" role="menuitem" href="/coord">Coordinación</a>
+                    <a class="topbar__admin{% if nav_agenda %} is-active{% endif %}" role="menuitem" href="/coord/agenda">Agenda</a>
+                    <a class="topbar__admin{% if nav_mae %} is-active{% endif %}" role="menuitem" href="/coord/maestros">Maestros</a>
+                    <a class="topbar__admin{% if path == '/admin' %} is-active{% endif %}" role="menuitem" href="/admin">Panel</a>
+                  {% endif %}
+                  {% if user.can_manage_users %}
+                    <a class="topbar__admin{% if path.startswith('/admin/empresas') %} is-active{% endif %}" role="menuitem" href="/admin/empresas">Empresas</a>
+                    <a class="topbar__admin{% if path.startswith('/admin/usuarios') %} is-active{% endif %}" role="menuitem" href="/admin/usuarios">Usuarios</a>
+                  {% endif %}
+                </div>
+              </details>
+            {% endif %}
+            <form action="/auth/logout" method="post" class="topbar__logout">
+              <button type="submit" class="linklike">Salir</button>
+            </form>
+          </div>
         {% else %}
           <a class="btn btn--sm" href="/auth/login?next={{ request.url.path }}">Acceder</a>
         {% endif %}
