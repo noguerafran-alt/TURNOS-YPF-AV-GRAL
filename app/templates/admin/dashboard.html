@@ -2,7 +2,8 @@
 {% block title %}Panel{% endblock %}
 
 {% block content %}
-  <div class="panel-head">
+<div class="staff-page">
+  <div class="panel-head staff-page__head">
     <h1>Panel de administración</h1>
   </div>
   <p class="muted">Entraste como <strong>{{ user.role_label }}</strong>.</p>
@@ -117,4 +118,5 @@
       <p class="muted">No hay turnos reservados hacia adelante.</p>
     {% endif %}
   </section>
+</div>
 {% endblock %}
