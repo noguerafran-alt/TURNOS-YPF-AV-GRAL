@@ -345,7 +345,7 @@
           <button type="button" class="btn btn--danger btn--sm ae-grado">Cambiar grado</button>
           <button type="button" class="btn btn--danger btn--sm ae-del">Eliminar</button>
         </td>
-      </tr>`).join('') || '<tr><td colspan="8" class="muted">Sin resultados.</td></tr>';
+      </tr>`).join('') || '<tr><td colspan="8" class="muted" style="text-align:center">Sin resultados.</td></tr>';
 
     tb.querySelectorAll('tr[data-id]').forEach(tr => {
       const id = Number(tr.dataset.id);
@@ -464,7 +464,7 @@
           <button type="button" class="btn btn--outline btn--sm hg-tog">${h.activo ? 'Desactivar' : 'Activar'}</button>
           <button type="button" class="btn btn--danger btn--sm hg-del">Eliminar</button>
         </td>
-      </tr>`).join('') || '<tr><td colspan="5" class="muted">Sin hangares.</td></tr>';
+      </tr>`).join('') || '<tr><td colspan="5" class="muted" style="text-align:center">Sin hangares.</td></tr>';
     tb.querySelectorAll('tr[data-id]').forEach(tr => {
       const id = Number(tr.dataset.id);
       const h = hangares.find(x => x.id === id);
@@ -544,7 +544,7 @@
           <button type="button" class="btn btn--danger btn--sm ab-grado">Cambiar grado</button>
           <button type="button" class="btn btn--danger btn--sm ab-del">Eliminar</button>
         </td>
-      </tr>`).join('') || '<tr><td colspan="7" class="muted">Sin abastecedoras.</td></tr>';
+      </tr>`).join('') || '<tr><td colspan="7" class="muted" style="text-align:center">Sin abastecedoras.</td></tr>';
     tb.querySelectorAll('tr[data-id]').forEach(tr => {
       const id = Number(tr.dataset.id);
       const a = data.items.find(x => x.id === id);
@@ -636,7 +636,7 @@
           <button type="button" class="btn btn--outline btn--sm op-tog">${o.activo?'Desactivar':'Activar'}</button>
           <button type="button" class="btn btn--danger btn--sm op-del">Eliminar</button>
         </td>
-      </tr>`).join('') || '<tr><td colspan="5" class="muted">Sin operadores.</td></tr>';
+      </tr>`).join('') || '<tr><td colspan="5" class="muted" style="text-align:center">Sin operadores.</td></tr>';
     tb.querySelectorAll('tr[data-id]').forEach(tr => {
       const id = Number(tr.dataset.id);
       const o = data.items.find(x => x.id === id);
@@ -713,7 +713,7 @@
             <button type="button" class="btn btn--danger btn--sm us-del">Eliminar</button>
           ` : '<span class="muted">Solo lectura</span>'}
         </td>
-      </tr>`).join('');
+      </tr>`).join('') || '<tr><td colspan="8" class="muted" style="text-align:center">Sin usuarios.</td></tr>';
     if (!canManage) return;
     tb.querySelectorAll('tr[data-id]').forEach(tr => {
       const id = Number(tr.dataset.id);

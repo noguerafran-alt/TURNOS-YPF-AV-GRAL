@@ -1265,6 +1265,7 @@ fieldset.field legend { font-family: var(--font-head); font-size: .88rem; font-w
 /* ===== Páginas legales (términos / privacidad) ===== */
 .footer__links {
   display: flex; flex-wrap: wrap; gap: .35rem 1rem;
+  justify-content: center;
   margin: .65rem 0 .35rem; font-size: .88rem;
 }
 .footer__links a { color: var(--navy-700); font-weight: 500; }
