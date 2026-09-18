@@ -13,6 +13,25 @@
       <p class="notice">Completá tu perfil para poder reservar turnos.</p>
     {% endif %}
 
+    {% if inbound_invites %}
+      {% for inv in inbound_invites %}
+        <div class="notice" style="margin-bottom:.75rem">
+          <p style="margin:0 0 .55rem">
+            Te invitaron a <strong>{{ inv.empresa.nombre if inv.empresa else 'una empresa' }}</strong>
+            {% if inv.role_in_empresa == 'admin_empresa' %}como administrador{% else %}como usuario{% endif %}.
+          </p>
+          <div class="form-row" style="gap:.5rem">
+            <form method="post" action="/perfil/empresa/invitaciones/{{ inv.id }}/aceptar">
+              <button type="submit" class="btn btn--accent btn--sm">Aceptar</button>
+            </form>
+            <form method="post" action="/perfil/empresa/invitaciones/{{ inv.id }}/rechazar">
+              <button type="submit" class="btn btn--outline btn--sm">Rechazar</button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+    {% endif %}
+
     <div class="profile">
       {% if user.picture %}
         <img class="profile__avatar" src="{{ user.picture }}" alt="" width="56" height="56" referrerpolicy="no-referrer" />
@@ -25,9 +44,9 @@
         {% elif user.is_admin %}
           <span class="chip chip--admin">{{ user.role_label }}</span>
         {% elif user.is_admin_empresa %}
-          <span class="chip chip--ok">Administrás tu empresa</span>
+          <span class="chip chip--ok">Admin de empresa</span>
         {% elif user.is_miembro_empresa %}
-          <span class="chip chip--ok">Mi cuenta</span>
+          <span class="chip chip--ok">Miembro de empresa</span>
         {% endif %}
       </div>
     </div>
@@ -47,105 +66,123 @@
         <p class="hint">La planta te puede llamar si necesita avisarte algo de tu turno.</p>
       </div>
 
-      <div class="field">
-        <label for="company">Empresa u operador *</label>
-        {% if empresa %}
-          <input type="text" id="company" name="company" value="{{ empresa.nombre }}" maxlength="160" readonly />
-          <p class="hint">Formás parte de <strong>{{ empresa.nombre }}</strong>. El nombre lo define tu organización.</p>
-        {% else %}
+      {% if empresa %}
+        {# Nombre formal lo fija la organización; no mezclar con texto libre #}
+        <input type="hidden" name="company" value="{{ empresa.nombre }}" />
+      {% else %}
+        <div class="field">
+          <label for="company">Nombre comercial (texto libre) *</label>
           <input type="text" id="company" name="company" value="{{ user.company }}" maxlength="160" required
-                 placeholder="Ej. Aviación San Fernando" />
-          <p class="hint">Escribí el nombre con el que operás. Si alguien de tu empresa te invita, al entrar se completa solo.</p>
-        {% endif %}
-      </div>
+                 placeholder="Ej. AVIONES PACO / tu flota" />
+          <p class="hint">
+            Es solo una etiqueta en tus turnos. <strong>No</strong> crea una organización formal
+            ni te deja invitar gente. Para eso usá «Crear mi empresa» abajo, o pedí una invitación.
+          </p>
+        </div>
+      {% endif %}
 
       <button type="submit" class="btn btn--accent">Guardar cambios</button>
     </form>
 
+    <hr style="border:0;border-top:1px solid var(--border);margin:1.4rem 0" />
+
     {% if not empresa %}
-      <hr style="border:0;border-top:1px solid var(--border);margin:1.4rem 0" />
-      <h2>Crear mi empresa</h2>
-      <p class="muted">
-        Si trabajás en una organización, creala acá. Después vas a poder invitar a tu equipo por email.
-      </p>
-      <form method="post" action="/perfil/empresa/crear" class="form-row">
-        <div class="field field--grow">
-          <label for="empresa_nombre">Nombre de la empresa *</label>
-          <input type="text" id="empresa_nombre" name="nombre" required maxlength="160"
-                 placeholder="Ej. Aviación San Fernando S.A."
-                 value="{{ user.company or '' }}" />
-        </div>
-        <button type="submit" class="btn btn--accent">Crear mi empresa</button>
-      </form>
-    {% elif empresa and user.is_admin_empresa %}
-      <hr style="border:0;border-top:1px solid var(--border);margin:1.4rem 0" />
-      <h2>Invitar al equipo</h2>
-      <p class="muted">
-        Sos quien administra la empresa. Podés invitar compañeros por email; entran con su cuenta de Google.
-      </p>
-      <p class="hint">Escribí el email de cada persona. Van a ver los turnos y aeronaves de la empresa.</p>
+      <section class="empresa-panel">
+        <h2>Crear mi empresa</h2>
+        <p class="muted">
+          Creá una <strong>organización formal</strong> para invitar a tu equipo por email
+          (entran con Google) y compartir turnos/aeronaves. Solo una empresa por persona.
+        </p>
+        <form method="post" action="/perfil/empresa/crear" class="form-row">
+          <div class="field field--grow">
+            <label for="empresa_nombre">Nombre de la empresa *</label>
+            <input type="text" id="empresa_nombre" name="nombre" required maxlength="160"
+                   placeholder="Ej. Aviación San Fernando S.A."
+                   value="{{ user.company or '' }}" />
+          </div>
+          <button type="submit" class="btn btn--accent">Crear mi empresa</button>
+        </form>
+      </section>
 
-      <form method="post" action="/perfil/empresa/invitar" class="form-row">
-        <div class="field">
-          <label for="invite_email">Email *</label>
-          <input type="email" id="invite_email" name="email" required placeholder="persona@empresa.com" />
-        </div>
-        <div class="field">
-          <label for="invite_role">Rol</label>
-          <select id="invite_role" name="role_in_empresa">
-            <option value="usuario_empresa">Usuario</option>
-            <option value="admin_empresa">Administrador</option>
-          </select>
-        </div>
-        <button type="submit" class="btn btn--accent">Invitar al equipo</button>
-      </form>
+    {% else %}
+      <section class="empresa-panel">
+        <h2>Mi empresa</h2>
+        <p style="margin:.2rem 0 .8rem">
+          <strong>{{ empresa.nombre }}</strong>
+          {% if user.is_admin_empresa %}
+            <span class="chip chip--ok">Administrador</span>
+          {% else %}
+            <span class="chip">Miembro</span>
+          {% endif %}
+        </p>
+        <p class="hint" style="margin-top:0">
+          Esta es tu membresía formal. Ya no podés crear otra empresa mientras pertenezcas a esta.
+        </p>
 
-      {% if pending_invites %}
-        <h3>Pendientes</h3>
-        <table class="table">
-          <thead><tr><th>Email</th><th>Rol</th><th></th></tr></thead>
-          <tbody>
-            {% for inv in pending_invites %}
-              <tr>
-                <td>{{ inv.email }}</td>
-                <td>{% if inv.role_in_empresa == 'admin_empresa' %}Administrador{% else %}Usuario{% endif %}</td>
-                <td class="table__actions">
-                  <form method="post" action="/perfil/empresa/invitaciones/{{ inv.id }}/cancelar">
-                    <button type="submit" class="btn btn--sm btn--outline">Cancelar</button>
-                  </form>
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      {% endif %}
+        {% if user.is_admin_empresa %}
+          <h3>Invitar por email</h3>
+          <p class="muted">
+            Escribí el email de Google de cada persona. Al entrar van a quedar en
+            <strong>{{ empresa.nombre }}</strong>.
+          </p>
+          <form method="post" action="/perfil/empresa/invitar" class="form-row">
+            <div class="field">
+              <label for="invite_email">Email *</label>
+              <input type="email" id="invite_email" name="email" required placeholder="persona@empresa.com" />
+            </div>
+            <div class="field">
+              <label for="invite_role">Rol</label>
+              <select id="invite_role" name="role_in_empresa">
+                <option value="usuario_empresa">Usuario</option>
+                <option value="admin_empresa">Administrador</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn--accent">Enviar invitación</button>
+          </form>
 
-      <h3>Miembros activos</h3>
-      {% if members %}
-        <table class="table">
-          <thead><tr><th>Usuario</th><th>Rol</th></tr></thead>
-          <tbody>
-            {% for m in members %}
-              <tr>
-                <td>
-                  <strong>{{ m.display_name }}</strong>
-                  <br /><span class="muted">{{ m.email }}</span>
-                </td>
-                <td>{% if m.role_in_empresa == 'admin_empresa' %}Administrador{% else %}Usuario{% endif %}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      {% else %}
-        <p class="muted">Todavía no hay miembros.</p>
-      {% endif %}
-    {% elif empresa %}
-      <hr style="border:0;border-top:1px solid var(--border);margin:1.4rem 0" />
-      <h2>Tu empresa</h2>
-      <p>Formás parte de <strong>{{ empresa.nombre }}</strong>.</p>
-      {% if members %}
-        <p class="muted">{{ members|length }} miembro{{ 's' if members|length != 1 else '' }}.</p>
-      {% endif %}
+          {% if pending_invites %}
+            <h3>Invitaciones pendientes</h3>
+            <table class="table">
+              <thead><tr><th>Email</th><th>Rol</th><th></th></tr></thead>
+              <tbody>
+                {% for inv in pending_invites %}
+                  <tr>
+                    <td>{{ inv.email }}</td>
+                    <td>{% if inv.role_in_empresa == 'admin_empresa' %}Administrador{% else %}Usuario{% endif %}</td>
+                    <td class="table__actions">
+                      <form method="post" action="/perfil/empresa/invitaciones/{{ inv.id }}/cancelar">
+                        <button type="submit" class="btn btn--sm btn--outline">Cancelar</button>
+                      </form>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% endif %}
+        {% else %}
+          <p class="muted">Para invitar gente pedile al administrador de la empresa.</p>
+        {% endif %}
+
+        <h3>Miembros</h3>
+        {% if members %}
+          <table class="table">
+            <thead><tr><th>Usuario</th><th>Rol</th></tr></thead>
+            <tbody>
+              {% for m in members %}
+                <tr>
+                  <td>
+                    <strong>{{ m.display_name }}</strong>
+                    <br /><span class="muted">{{ m.email }}</span>
+                  </td>
+                  <td>{% if m.role_in_empresa == 'admin_empresa' %}Administrador{% else %}Usuario{% endif %}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p class="muted">Todavía no hay miembros.</p>
+        {% endif %}
+      </section>
     {% endif %}
 
     <hr style="border:0;border-top:1px solid var(--border);margin:1.4rem 0" />

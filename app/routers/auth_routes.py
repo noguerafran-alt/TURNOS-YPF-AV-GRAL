@@ -152,6 +152,19 @@ def profile_page(
     empresa = user.empresa
     members: list[User] = []
     pending: list[InvitacionEmpresa] = []
+    inbound_invites: list[InvitacionEmpresa] = []
+    if not user.empresa_id:
+        inbound_invites = list(
+            db.scalars(
+                select(InvitacionEmpresa)
+                .options(selectinload(InvitacionEmpresa.empresa))
+                .where(
+                    InvitacionEmpresa.email == (user.email or "").strip().lower(),
+                    InvitacionEmpresa.status == InvitacionStatus.PENDING,
+                )
+                .order_by(InvitacionEmpresa.created_at.desc())
+            ).all()
+        )
     if empresa is not None:
         members = list(
             db.scalars(
@@ -183,6 +196,7 @@ def profile_page(
             "empresa": empresa,
             "members": members,
             "pending_invites": pending,
+            "inbound_invites": inbound_invites,
             "empresa_ok": empresa_ok,
             "empresa_error": empresa_error,
             "role_in_empresa_labels": ROLE_IN_EMPRESA_LABELS,
