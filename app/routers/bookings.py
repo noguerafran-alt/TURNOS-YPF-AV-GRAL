@@ -20,7 +20,7 @@ from app.config import settings
 from app.database import get_db, is_postgres
 from app.emails import booking_payload, send_cancellation, send_confirmation
 from app.empresa_service import flag_matricula_otra_empresa
-from app.matricula import lookup_matricula, normalize_matricula
+from app.matricula import lookup_matricula, normalize_matricula, parse_matricula
 from app.models import Agenda, Booking, BookingStatus, CoordinacionStatus, OrigenBooking, User
 from app.slots import SlotStatus, find_slot
 
@@ -61,9 +61,17 @@ class BookingRequest(BaseModel):
     flight_number: str = Field(default="", max_length=20)
     notes: str = Field(default="", max_length=500)
 
-    @field_validator("aircraft", "aircraft_confirm", "aircraft_model")
+    @field_validator("aircraft", "aircraft_confirm")
     @classmethod
-    def not_blank(cls, value: str) -> str:
+    def matricula_ok(cls, value: str) -> str:
+        try:
+            return parse_matricula(value)
+        except ValueError as e:
+            raise ValueError(str(e)) from e
+
+    @field_validator("aircraft_model")
+    @classmethod
+    def not_blank_model(cls, value: str) -> str:
         value = value.strip()
         if not value:
             raise ValueError("Este campo es obligatorio.")
@@ -153,9 +161,9 @@ def create_booking(
                 ),
             )
 
-        aircraft = payload.aircraft.strip().upper()[:40]
-        confirm = payload.aircraft_confirm.strip().upper()[:40]
-        if normalize_matricula(aircraft) != normalize_matricula(confirm):
+        aircraft = parse_matricula(payload.aircraft)[:40]
+        confirm = parse_matricula(payload.aircraft_confirm)[:40]
+        if aircraft != confirm:
             raise HTTPException(
                 status_code=400,
                 detail="La matrícula de confirmación no coincide. Reescribila exactamente para confirmar.",
