@@ -17,6 +17,16 @@ from sqlalchemy.orm import Session, selectinload
 from app.auth import require_admin
 from app.config import settings
 from app.database import get_db
+from app.scope import (
+    AVISO_SIN_AEROPLANTA,
+    is_scope_empty,
+    allowed_agenda_ids,
+    maestro_plant_scope,
+    require_agenda_access,
+    scoped_agendas,
+    set_user_agendas,
+    user_agenda_ids,
+)
 from app.emails import booking_payload, send_cancellation
 from app.matricula import normalize_grado, normalize_matricula, parse_matricula
 from app.models import (
@@ -31,6 +41,7 @@ from app.models import (
     Operador,
     Role,
     User,
+    UserAgenda,
 )
 from app.templating import templates
 
@@ -120,6 +131,13 @@ def _user_json(u: User) -> dict:
     last_login = None
     if u.last_login_at:
         last_login = u.last_login_at.astimezone(settings.tz).strftime("%d/%m/%Y %H:%M")
+    agenda_ids = user_agenda_ids(u)
+    agenda_names = []
+    for link in u.agenda_links or []:
+        if link.agenda is not None:
+            agenda_names.append(link.agenda.full_name)
+        else:
+            agenda_names.append(f"#{link.agenda_id}")
     return {
         "id": u.id,
         "name": u.name or "",
@@ -131,6 +149,8 @@ def _user_json(u: User) -> dict:
         "is_blocked": u.is_blocked,
         "google_sub": bool(u.google_sub),
         "last_login_at": last_login,
+        "agenda_ids": agenda_ids,
+        "agenda_names": agenda_names,
     }
 
 
@@ -172,6 +192,14 @@ def _count_level2(db: Session, *, excluding: int | None = None) -> int:
     return db.scalar(q) or 0
 
 
+
+def _check_write_agenda(admin: User, db: Session, agenda_id: int | None) -> None:
+    """Nivel1 solo puede crear/editar en sus plantas (o Global)."""
+    if agenda_id is None:
+        return  # Global permitido
+    require_agenda_access(admin, db, agenda_id)
+
+
 def _maestro_agenda_scope(column, agenda_id: int | None):
     """Filtro de planta para maestros con agenda_id nullable.
 
@@ -193,18 +221,33 @@ def maestros_page(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    agendas = db.scalars(
-        select(Agenda).where(Agenda.is_active.is_(True)).order_by(Agenda.sort_order, Agenda.name)
-    ).all()
+    agendas = scoped_agendas(db, admin)
+    # Para asignación de usuarios (solo nivel2): todas las agendas activas
+    all_agendas = (
+        list(
+            db.scalars(
+                select(Agenda).where(Agenda.is_active.is_(True)).order_by(Agenda.sort_order, Agenda.name)
+            ).all()
+        )
+        if admin.can_manage_users
+        else agendas
+    )
     hangares = db.scalars(select(Hangar).order_by(Hangar.codigo)).all()
+    # Filtrar hangares del select por scope del viewer (nivel1)
+    allowed = allowed_agenda_ids(admin, db)
+    if allowed is not None:
+        hangares = [h for h in hangares if h.agenda_id is None or h.agenda_id in allowed]
     return templates.TemplateResponse(
         request,
         "coord/maestros.html",
         {
             "user": admin,
             "agendas": agendas,
+            "all_agendas": all_agendas,
             "hangares": [_hangar_json(h) for h in hangares],
             "can_manage_users": admin.can_manage_users,
+            "scope_empty": is_scope_empty(admin, db),
+            "scope_aviso": AVISO_SIN_AEROPLANTA,
             "role_labels": {str(getattr(k, "value", k)): v for k, v in ROLE_LABELS.items()},
             "roles": [Role.CLIENTE.value, Role.OPERADOR.value, Role.NIVEL_1.value, Role.NIVEL_2.value],
         },
@@ -455,9 +498,9 @@ def list_hangares(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    _ = admin
     stmt = select(Hangar).order_by(Hangar.codigo)
-    scope = _maestro_agenda_scope(Hangar.agenda_id, agenda_id)
+    allowed = allowed_agenda_ids(admin, db)
+    scope = maestro_plant_scope(Hangar.agenda_id, agenda_id, allowed)
     if scope is not None:
         stmt = stmt.where(scope)
     rows = db.scalars(stmt).all()
@@ -470,7 +513,7 @@ def create_hangar(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    _ = admin
+    _check_write_agenda(admin, db, body.agenda_id)
     if db.scalar(select(Hangar).where(Hangar.codigo == body.codigo)):
         raise HTTPException(status_code=409, detail="Ya existe un hangar con ese código.")
     row = Hangar(
@@ -493,7 +536,7 @@ def patch_hangar(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    _ = admin
+    _check_write_agenda(admin, db, body.agenda_id)
     row = db.get(Hangar, hid)
     if row is None:
         raise HTTPException(status_code=404, detail="Hangar inexistente.")
@@ -566,9 +609,9 @@ def list_abs(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    _ = admin
     stmt = select(Abastecedora).order_by(Abastecedora.sort_order, Abastecedora.codigo, Abastecedora.nombre)
-    scope = _maestro_agenda_scope(Abastecedora.agenda_id, agenda_id)
+    allowed = allowed_agenda_ids(admin, db)
+    scope = maestro_plant_scope(Abastecedora.agenda_id, agenda_id, allowed)
     if scope is not None:
         stmt = stmt.where(scope)
     rows = db.scalars(stmt).all()
@@ -581,7 +624,7 @@ def create_abs(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    _ = admin
+    _check_write_agenda(admin, db, body.agenda_id)
     codigo = (body.codigo or "").strip().upper() or None
     if codigo and db.scalar(select(Abastecedora).where(Abastecedora.codigo == codigo)):
         raise HTTPException(status_code=409, detail="Código ya usado.")
@@ -607,7 +650,7 @@ def patch_abs(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    _ = admin
+    _check_write_agenda(admin, db, body.agenda_id)
     row = db.get(Abastecedora, aid)
     if row is None:
         raise HTTPException(status_code=404, detail="Abastecedora inexistente.")
@@ -694,9 +737,9 @@ def list_ops(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    _ = admin
     stmt = select(Operador).options(selectinload(Operador.user)).order_by(Operador.nombre)
-    scope = _maestro_agenda_scope(Operador.agenda_id, agenda_id)
+    allowed = allowed_agenda_ids(admin, db)
+    scope = maestro_plant_scope(Operador.agenda_id, agenda_id, allowed)
     if scope is not None:
         stmt = stmt.where(scope)
     rows = db.scalars(stmt).all()
@@ -709,7 +752,7 @@ def create_op(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    _ = admin
+    _check_write_agenda(admin, db, body.agenda_id)
     nombre = body.nombre.strip()[:160]
     norm = _norm_nombre(nombre)
     if not norm:
@@ -744,7 +787,7 @@ def patch_op(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    _ = admin
+    _check_write_agenda(admin, db, body.agenda_id)
     row = db.get(Operador, oid)
     if row is None:
         raise HTTPException(status_code=404, detail="Operador inexistente.")
@@ -821,6 +864,8 @@ class UsuarioBody(BaseModel):
     company: str = ""
     phone: str = ""
     is_blocked: bool = False
+    # Aeroplantas asignadas (nivel1 / operador). Omitir = no tocar; [] = limpiar.
+    agenda_ids: list[int] | None = None
 
     @field_validator("email")
     @classmethod
@@ -840,7 +885,11 @@ def list_usuarios(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    stmt = select(User).order_by(User.role.desc(), User.email)
+    stmt = (
+        select(User)
+        .options(selectinload(User.agenda_links).selectinload(UserAgenda.agenda))
+        .order_by(User.role.desc(), User.email)
+    )
     if q.strip():
         like = f"%{q.strip().lower()}%"
         stmt = stmt.where(
@@ -880,8 +929,17 @@ def create_usuario(
         is_blocked=body.is_blocked,
     )
     db.add(row)
+    db.flush()
+    if body.role in (Role.NIVEL_1.value, Role.OPERADOR.value) and body.agenda_ids is not None:
+        set_user_agendas(db, row, body.agenda_ids)
+    elif body.role not in (Role.NIVEL_1.value, Role.OPERADOR.value):
+        set_user_agendas(db, row, [])
     db.commit()
-    db.refresh(row)
+    row = db.scalar(
+        select(User)
+        .options(selectinload(User.agenda_links).selectinload(UserAgenda.agenda))
+        .where(User.id == row.id)
+    )
     return {"ok": True, "item": _user_json(row)}
 
 
@@ -924,7 +982,18 @@ def patch_usuario(
     target.role = body.role
     target.is_blocked = body.is_blocked
     # email no se cambia (identidad Google)
+    if body.role in (Role.NIVEL_1.value, Role.OPERADOR.value):
+        if body.agenda_ids is not None:
+            set_user_agendas(db, target, body.agenda_ids)
+    else:
+        # Cliente / nivel2: sin aeroplantas de coordinación
+        set_user_agendas(db, target, [])
     db.commit()
+    target = db.scalar(
+        select(User)
+        .options(selectinload(User.agenda_links).selectinload(UserAgenda.agenda))
+        .where(User.id == target.id)
+    )
     return {"ok": True, "item": _user_json(target)}
 
 

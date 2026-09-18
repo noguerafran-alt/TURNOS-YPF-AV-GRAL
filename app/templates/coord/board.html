@@ -105,6 +105,13 @@
     </div>
   </div>
 
+
+  {% if scope_empty %}
+  <div class="coord-banner" role="status" style="margin-bottom:1rem">
+    <strong>Asigná aeroplanta</strong>
+    {{ scope_aviso }}
+  </div>
+  {% endif %}
   <div class="coord-filters staff-filters">
     <div class="field">
       <label for="f-date">Fecha</label>

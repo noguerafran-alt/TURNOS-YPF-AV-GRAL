@@ -60,7 +60,8 @@
      data-can-manage="{{ '1' if can_manage_users else '0' }}"
      data-hangares='{{ hangares | tojson }}'
      data-roles='{{ roles | tojson }}'
-     data-role-labels='{{ role_labels | tojson }}'>
+     data-role-labels='{{ role_labels | tojson }}'
+     data-assign-agendas='[{% for a in (all_agendas if all_agendas is defined else agendas) %}{"id":{{ a.id }},"name":{{ a.full_name | tojson }}}{% if not loop.last %},{% endif %}{% endfor %}]'>
   <div class="page-head panel-head staff-page__head">
     <div>
       <h1>Maestros</h1>
@@ -156,7 +157,7 @@
     <div class="notice--info">Vista de lectura. Solo nivel 2 puede cambiar roles, bloquear o eliminar usuarios.</div>
     {% endif %}
     <table class="table table--mae"><thead><tr>
-      <th>Nombre</th><th>Email</th><th>Rol</th><th>Cliente / empresa</th><th>Último ingreso</th><th>Activo</th><th></th>
+      <th>Nombre</th><th>Email</th><th>Rol</th><th>Aeroplantas</th><th>Cliente / empresa</th><th>Último ingreso</th><th>Activo</th><th></th>
     </tr></thead><tbody id="us-body"></tbody></table>
   </section>
 </div>
@@ -201,6 +202,21 @@
   let hangares = JSON.parse(app.dataset.hangares || '[]');
   const roles = JSON.parse(app.dataset.roles || '[]');
   const roleLabels = JSON.parse(app.dataset.roleLabels || '{}');
+  const assignAgendas = JSON.parse(app.dataset.assignAgendas || '[]');
+  function agendasCheckboxesHtml(selectedIds) {
+    const sel = new Set((selectedIds || []).map(Number));
+    if (!assignAgendas.length) return '<p class="hint">No hay agendas activas.</p>';
+    return '<div class="field"><label>Aeroplantas</label><div class="check-grid" style="display:flex;flex-direction:column;gap:.35rem;max-height:160px;overflow:auto;padding:.4rem 0">'
+      + assignAgendas.map(a =>
+          `<label style="font-weight:500;display:flex;gap:.5rem;align-items:center">`
+          + `<input type="checkbox" class="f-agenda-cb" value="${a.id}" ${sel.has(a.id)?'checked':''}/>`
+          + `${esc(a.name)}</label>`
+        ).join('')
+      + '</div><p class="hint">Solo aplica a Coordinación (nivel 1) y Operador. Multi-selección.</p></div>';
+  }
+  function readAgendaIds() {
+    return Array.from(document.querySelectorAll('.f-agenda-cb:checked')).map(el => Number(el.value));
+  }
   const toast = document.getElementById('toast');
   function showToast(m) { toast.textContent = m; toast.classList.add('is-on'); setTimeout(() => toast.classList.remove('is-on'), 2800); }
   function agendaId() { const v = document.getElementById('f-agenda').value; return v ? Number(v) : null; }
@@ -686,6 +702,7 @@
         <td>${esc(u.name || '—')}</td>
         <td>${esc(u.email)}</td>
         <td>${esc(u.role_label || u.role)}</td>
+        <td>${esc((u.agenda_names && u.agenda_names.length) ? u.agenda_names.join(', ') : (u.role==='nivel1' || u.role==='operador' ? '—' : ''))}</td>
         <td>${esc(u.company || '—')}</td>
         <td>${esc(u.last_login_at || 'Nunca')}</td>
         <td>${u.is_blocked ? '<span class="chip chip--warn">Bloqueado</span>' : '<span class="chip chip--ok">Activo</span>'}</td>
@@ -709,6 +726,7 @@
           <div class="field"><label>Empresa / cliente</label><input id="f-co" value="${esc(u.company)}" /></div>
           <div class="field"><label>Teléfono</label><input id="f-ph" value="${esc(u.phone)}" /></div>
           <div class="field"><label>Rol</label><select id="f-role">${opts}</select></div>
+          ${agendasCheckboxesHtml(u.agenda_ids || [])}
           <div class="field field--check"><label><input type="checkbox" id="f-block" ${u.is_blocked?'checked':''}/> Bloqueado</label></div>
           ${u.google_sub ? '<p class="hint">Cuenta Google: sin password local.</p>' : ''}
         `, async () => {
@@ -721,6 +739,7 @@
               phone: document.getElementById('f-ph').value,
               role: document.getElementById('f-role').value,
               is_blocked: document.getElementById('f-block').checked,
+              agenda_ids: readAgendaIds(),
             })
           });
           showToast('Usuario actualizado');
@@ -748,6 +767,7 @@
       <div class="field"><label>Nombre</label><input id="f-name" /></div>
       <div class="field"><label>Rol</label><select id="f-role">${opts}</select></div>
       <div class="field"><label>Empresa</label><input id="f-co" /></div>
+      ${agendasCheckboxesHtml([])}
     `, async () => {
       await api('/coord/maestros/usuarios', {
         method:'POST', headers:{'Content-Type':'application/json'},
@@ -756,6 +776,7 @@
           name: document.getElementById('f-name').value,
           role: document.getElementById('f-role').value,
           company: document.getElementById('f-co').value,
+          agenda_ids: readAgendaIds(),
         })
       });
       showToast('Usuario creado');

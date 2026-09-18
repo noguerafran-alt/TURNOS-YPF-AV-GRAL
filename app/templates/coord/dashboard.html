@@ -132,6 +132,12 @@
     </div>
   </div>
 
+
+  {% if scope_empty %}
+  <div class="notice--info" role="status" style="background:#FDECEA;border-color:#C0392B;color:#7B1E1E;margin-bottom:1rem">
+    <strong>Asigná aeroplanta.</strong> {{ scope_aviso }}
+  </div>
+  {% endif %}
   <div class="dash-filters staff-filters">
     <div class="dash-filters__left">
       <div class="field">
