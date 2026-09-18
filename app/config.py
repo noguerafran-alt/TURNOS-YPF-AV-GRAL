@@ -103,6 +103,10 @@ class Settings:
         # Fotos de toma: disco Render /var/data o fallback local.
         default_toma = "/var/data/tomas" if Path("/var/data").is_dir() else "data/tomas"
         self.toma_storage_dir: str = os.getenv("TOMA_STORAGE_DIR", default_toma)
+        # Token del ESP que traba el pico ante una contradiccion. Sin token
+        # configurado, /toma/estado responde 401 y el ESP libera por watchdog:
+        # o sea que sin configurar, el sistema no traba nada.
+        self.toma_esp_token: str = os.getenv("TOMA_ESP_TOKEN", "")
 
     @property
     def tz(self) -> ZoneInfo:

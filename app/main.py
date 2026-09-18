@@ -20,7 +20,7 @@ from app.auth import get_current_user  # noqa: F401  (se usa como dependencia en
 from app.config import settings
 from app.migrate import upgrade_database
 from app.reminders import reminder_loop
-from app.routers import admin, auth_routes, bookings, coord, empresas, external_ypf, maestros, mis_aeronaves, operador, public, users_admin
+from app.routers import admin, auth_routes, bookings, coord, empresas, external_ypf, maestros, mis_aeronaves, operador, public, toma, users_admin
 from app.templating import templates
 
 # Uvicorn configura sus propios loggers, pero deja el root sin handlers: sin esto,
@@ -101,6 +101,7 @@ app.include_router(coord.router)
 app.include_router(maestros.router)
 app.include_router(operador.router)
 app.include_router(external_ypf.router)
+app.include_router(toma.router)
 
 
 @app.exception_handler(HTTPException)

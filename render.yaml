@@ -94,6 +94,12 @@ services:
       - key: YPF_API_KEY
         sync: false
 
+      # --- Traba del pico (ESP32) ---
+      # Tiene que coincidir con el secrets.h del firmware. Sin este valor,
+      # /toma/estado responde 401 y el ESP libera: no traba nada.
+      - key: TOMA_ESP_TOKEN
+        sync: false
+
       # --- QR toma / scan (opcional; si no está, se usa SECRET_KEY) ---
       - key: TOMA_QR_SECRET
         sync: false

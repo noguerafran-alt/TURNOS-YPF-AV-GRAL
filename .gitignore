@@ -28,3 +28,6 @@ Thumbs.db
 
 # Fotos de toma (dataset local)
 data/tomas/
+
+# Credenciales del ESP de la traba (wifi + token). Nunca al repo.
+hardware/**/secrets.h
