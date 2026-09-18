@@ -362,35 +362,37 @@ code { font-size: .85em; background: #EEF3F9; padding: .1em .35em; border-radius
 .agenda-card__meta dd { margin: 0; font-weight: 600; }
 .agenda-card .btn { margin-top: auto; }
 
-/* Fuel banner como logo arriba de la card (reemplaza pills de texto) */
+/* Fuel banner como logo oficial arriba de la card */
 .agenda-card .fuel-banner {
   width: 100%;
   margin: 0 0 .55rem;
-  padding: .55rem .75rem;
+  padding: 0;
   box-sizing: border-box;
   border: none;
   box-shadow: none;
+  background: transparent !important;
 }
-.agenda-card .fuel-banner__title { font-size: 1.05rem; }
+.agenda-card .fuel-banner__logo {
+  max-height: 56px;
+  border-radius: 10px;
+}
 .agenda-card .fuel-banner__sub { font-size: .7rem; opacity: .95; }
-.agenda-card--jet .fuel-banner--jet {
-  border: none;
-  box-shadow: none;
-}
+.agenda-card--jet .fuel-banner--jet,
 .agenda-card--avgas .fuel-banner--avgas {
   border: none;
   box-shadow: none;
-  background: transparent !important; /* se funde con el card rojo */
+  background: transparent !important;
 }
 .agenda-head .fuel-banner {
   width: min(100%, 22rem);
   margin: 0 0 .55rem;
-  padding: .55rem .85rem;
-}
-.agenda-head--jet .fuel-banner--jet {
+  padding: 0;
+  background: transparent !important;
   border: none;
   box-shadow: none;
 }
+.agenda-head .fuel-banner__logo { max-height: 52px; border-radius: 10px; }
+.agenda-head--jet .fuel-banner--jet,
 .agenda-head--avgas .fuel-banner--avgas {
   border: none;
   box-shadow: none;
@@ -512,6 +514,24 @@ code { font-size: .85em; background: #EEF3F9; padding: .1em .35em; border-radius
 .chip--admin { background: var(--navy-700); color: #fff; }
 .chip--jet { background: #1C1C1C; color: #fff; font-weight: 700; letter-spacing: .02em; }
 .chip--avgas { background: #C0392B; color: #fff; font-weight: 700; letter-spacing: .02em; }
+.chip--logo {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  overflow: hidden;
+  line-height: 0;
+  vertical-align: middle;
+  background: transparent;
+}
+.chip--logo.chip--jet,
+.chip--logo.chip--avgas { background: transparent; }
+.chip__logo {
+  display: block;
+  height: 18px;
+  width: auto;
+  max-width: 110px;
+  border-radius: 4px;
+}
 .chip--otra-empresa { background: var(--warn-bg); color: var(--warn); }
 
 /* ===== Diálogos ===== */
@@ -877,6 +897,32 @@ fieldset.field legend { font-family: var(--font-head); font-size: .88rem; font-w
   border: 2px solid var(--navy-800);
 }
 
+/* Contenedor limpio cuando hay logo oficial (el SVG/PNG ya trae el color) */
+.fuel-banner--logo {
+  padding: 0;
+  overflow: hidden;
+  box-shadow: none;
+  background: transparent;
+}
+.fuel-banner--logo.fuel-banner--jet,
+.fuel-banner--logo.fuel-banner--avgas {
+  background: transparent;
+}
+.fuel-banner__picture {
+  display: block;
+  width: 100%;
+  line-height: 0;
+}
+.fuel-banner__logo {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 64px;
+  object-fit: contain;
+  object-position: center;
+  border-radius: var(--fuel-radius);
+}
+
 .fuel-banner__title {
   display: inline-flex;
   align-items: center;
@@ -899,6 +945,7 @@ fieldset.field legend { font-family: var(--font-head); font-size: .88rem; font-w
 
 .fuel-banner__sub {
   margin: 0;
+  padding: 0 .35rem .45rem;
   font-family: var(--font-body);
   font-weight: 400;
   font-size: .78rem;
@@ -906,6 +953,17 @@ fieldset.field legend { font-family: var(--font-head); font-size: .88rem; font-w
   color: inherit;
   opacity: .92;
   max-width: 42rem;
+}
+.fuel-banner--logo .fuel-banner__sub {
+  color: var(--navy-800);
+  opacity: .85;
+}
+.agenda-card--jet .fuel-banner--logo .fuel-banner__sub,
+.agenda-card--avgas .fuel-banner--logo .fuel-banner__sub,
+.agenda-head--jet .fuel-banner--logo .fuel-banner__sub,
+.agenda-head--avgas .fuel-banner--logo .fuel-banner__sub {
+  color: #fff;
+  opacity: .92;
 }
 
 .fuel-banner--sticky {
@@ -919,8 +977,10 @@ fieldset.field legend { font-family: var(--font-head); font-size: .88rem; font-w
   padding: .55rem .85rem;
   margin-bottom: .55rem;
 }
+.fuel-banner--compact.fuel-banner--logo { padding: 0; }
 .fuel-banner--compact .fuel-banner__title { font-size: 1rem; }
 .fuel-banner--compact .fuel-banner__sub { font-size: .72rem; }
+.fuel-banner--compact .fuel-banner__logo { max-height: 48px; }
 
 .booking .fuel-banner { margin-top: .35rem; margin-bottom: .65rem; }
 

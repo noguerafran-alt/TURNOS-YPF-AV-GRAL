@@ -2,6 +2,7 @@
 
 AVGAS 100LL → rojo · JET A-1 → negro.
 Usado en plantillas Jinja y como fuente de verdad para el helper JS.
+Logos oficiales en /static/img/fuel/ (SVG preferido; PNG para email / fallback).
 """
 
 from __future__ import annotations
@@ -11,6 +12,22 @@ from typing import Literal
 
 Audience = Literal["cliente", "staff"]
 Variant = Literal["turno", "maestro"]
+
+# Rutas estáticas relativas (templates web / JS)
+_LOGO_SVG = {
+    "jet": "/static/img/fuel/jet-a1.svg",
+    "avgas": "/static/img/fuel/avgas-100ll.svg",
+}
+_LOGO_PNG = {
+    "jet": "/static/img/fuel/jet-a1-oficial.png",
+    "avgas": "/static/img/fuel/avgas-100ll-oficial.png",
+}
+
+# Alt accesible (espacio en 100 LL según branding oficial)
+_LOGO_ALT = {
+    "jet": "JET A-1",
+    "avgas": "AVGAS 100 LL",
+}
 
 
 def _normalize_grado(value: str) -> str:
@@ -37,6 +54,9 @@ class FuelBanner:
     bg: str
     subline: str
     show: bool
+    logo_svg: str = ""  # path relativo o vacío
+    logo_png: str = ""
+    logo_alt: str = ""
 
 
 _AVGAS_BG = "#C0392B"
@@ -100,6 +120,10 @@ def build_fuel_banner(
     else:
         css_mod, bg = "fuel-banner--unknown", _UNKNOWN_BG
 
+    logo_svg = _LOGO_SVG.get(kind, "")
+    logo_png = _LOGO_PNG.get(kind, "")
+    logo_alt = _LOGO_ALT.get(kind, label)
+
     mat = _clean_part(matricula)
     tipo_clean = _clean_tipo(tipo, for_cliente=(audience == "cliente"))
     cli = _clean_part(cliente) if audience == "staff" else ""
@@ -137,6 +161,9 @@ def build_fuel_banner(
         bg=bg,
         subline=subline,
         show=True,
+        logo_svg=logo_svg,
+        logo_png=logo_png,
+        logo_alt=logo_alt,
     )
 
 
@@ -151,4 +178,7 @@ def fuel_banner_dict(**kwargs) -> dict:
         "css_mod": b.css_mod,
         "bg": b.bg,
         "subline": b.subline,
+        "logo_svg": b.logo_svg,
+        "logo_png": b.logo_png,
+        "logo_alt": b.logo_alt,
     }
