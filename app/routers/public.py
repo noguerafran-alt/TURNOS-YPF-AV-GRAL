@@ -218,3 +218,13 @@ def qr_entry(
         {"user": user, "card": card, "now": now},
     )
 
+
+@router.get("/terminos")
+def terminos(request: Request, user: User | None = Depends(get_current_user)):
+    return templates.TemplateResponse(request, "terminos.html", {"user": user})
+
+
+@router.get("/privacidad")
+def privacidad(request: Request, user: User | None = Depends(get_current_user)):
+    return templates.TemplateResponse(request, "privacidad.html", {"user": user})
+

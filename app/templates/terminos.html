@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Términos y condiciones{% endblock %}
+
+{% block content %}
+  <article class="legal-page">
+    <h1>Términos y condiciones</h1>
+    <p class="legal-updated">Última actualización: 18 de septiembre de 2026</p>
+
+    <p>
+      Estos términos regulan el uso del sistema de turnos de abastecimiento aeronáutico
+      de <strong>{{ company_name }}</strong> (el “Servicio”), disponible en este sitio web.
+      Al crear una cuenta o reservar un turno, aceptás estos términos.
+    </p>
+
+    <h2>1. Qué es el Servicio</h2>
+    <p>
+      El Servicio permite solicitar y gestionar turnos de abastecimiento de combustible
+      de aviación (por ejemplo JET A-1 o AVGAS 100LL) en las aeroplantas publicadas,
+      según disponibilidad, reglas de anticipación y capacidad operativa.
+    </p>
+
+    <h2>2. Cuenta y acceso</h2>
+    <ul>
+      <li>El acceso de clientes se realiza principalmente con <strong>Google</strong> (OAuth).</li>
+      <li>Sos responsable de la veracidad de los datos que cargás (matrícula, contacto, etc.).</li>
+      <li>{{ company_name }} puede suspender cuentas que incumplan estos términos o usen el Servicio de forma indebida.</li>
+    </ul>
+
+    <h2>3. Reservas y cancelaciones</h2>
+    <ul>
+      <li>Un turno confirmado está sujeto a las reglas de cada aeroplanta (anticipación, horizonte, cupos).</li>
+      <li>La cancelación puede estar limitada por horas de anticipación definidas por planta.</li>
+      <li>La planta puede reprogramar, rechazar o marcar ausente un turno por motivos operativos o de seguridad.</li>
+    </ul>
+
+    <h2>4. Uso permitido</h2>
+    <p>
+      El Servicio es solo para gestionar turnos de abastecimiento legítimos. No está permitido
+      intentar acceder a datos de terceros, alterar el sistema, ni usar la información con fines ajenos al abastecimiento.
+    </p>
+
+    <h2>5. Limitación</h2>
+    <p>
+      El Servicio facilita la coordinación operativa; no garantiza abastecimiento si hay
+      restricciones técnicas, meteorológicas, de stock o de seguridad en planta.
+      En la medida permitida por la ley argentina aplicable, {{ company_name }} no responde
+      por daños indirectos derivados del uso del sitio.
+    </p>
+
+    <h2>6. Privacidad</h2>
+    <p>
+      El tratamiento de datos personales se describe en la
+      <a href="/privacidad">Política de privacidad</a>.
+    </p>
+
+    <h2>7. Contacto</h2>
+    <p>
+      Consultas sobre estos términos:
+      <a href="mailto:{{ support_email }}">{{ support_email }}</a>.
+    </p>
+
+    <p class="hint">Texto base orientativo. Puede actualizarse; la versión vigente es la publicada en esta página.</p>
+  </article>
+{% endblock %}

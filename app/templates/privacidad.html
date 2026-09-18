@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Política de privacidad{% endblock %}
+
+{% block content %}
+  <article class="legal-page">
+    <h1>Política de privacidad</h1>
+    <p class="legal-updated">Última actualización: 18 de septiembre de 2026</p>
+
+    <p>
+      Esta política explica qué datos personales trata <strong>{{ company_name }}</strong>
+      al usar el sistema de turnos de abastecimiento aeronáutico, con qué fin y cómo contactarnos.
+    </p>
+
+    <h2>1. Responsable</h2>
+    <p>
+      El responsable del tratamiento es {{ company_name }}.
+      Contacto: <a href="mailto:{{ support_email }}">{{ support_email }}</a>.
+    </p>
+
+    <h2>2. Datos que recopilamos</h2>
+    <ul>
+      <li>
+        <strong>Login con Google:</strong> dirección de email, nombre (y, si Google lo envía,
+        foto de perfil e identificador estable de la cuenta).
+      </li>
+      <li>
+        <strong>Perfil y contacto:</strong> teléfono u otros datos que completes voluntariamente.
+      </li>
+      <li>
+        <strong>Datos operativos de turnos:</strong> aeroplanta, fecha y hora, matrícula,
+        modelo de aeronave (si lo indicás), combustible, volumen estimado, notas del turno
+        y estados de coordinación (por ejemplo programado, abastecido o ausente).
+      </li>
+      <li>
+        <strong>Datos técnicos mínimos:</strong> registros de acceso al sistema necesarios
+        para seguridad y funcionamiento (por ejemplo fecha/hora de login).
+      </li>
+    </ul>
+
+    <h2>3. Para qué los usamos</h2>
+    <ul>
+      <li>Identificarte y permitirte reservar, consultar o cancelar turnos.</li>
+      <li>Operar el abastecimiento en planta (coordinación, operadores, confirmaciones).</li>
+      <li>Contactarte ante cambios, incidentes o soporte relacionados con tu turno.</li>
+      <li>Cumplir obligaciones legales o requerimientos de autoridad competente cuando corresponda.</li>
+    </ul>
+    <p><strong>No vendemos</strong> tus datos personales a terceros con fines comerciales.</p>
+
+    <h2>4. Con quién los compartimos</h2>
+    <ul>
+      <li>
+        <strong>Google:</strong> solo como proveedor de autenticación (OAuth); no controlamos
+        la política de privacidad de Google.
+      </li>
+      <li>
+        <strong>Personal operativo de planta / administración</strong> autorizado a gestionar turnos.
+      </li>
+      <li>
+        Proveedores técnicos que alojan o envían comunicaciones del Servicio (por ejemplo hosting
+        o email transaccional), bajo obligación de confidencialidad y solo para operar el sistema.
+      </li>
+    </ul>
+
+    <h2>5. Conservación</h2>
+    <p>
+      Conservamos los datos mientras tu cuenta esté activa y los turnos sean necesarios
+      para la operación y el historial del Servicio, o el plazo que exija la normativa aplicable.
+      Podés pedir baja o corrección escribiendo a {{ support_email }}.
+    </p>
+
+    <h2>6. Tus derechos</h2>
+    <p>
+      Podés solicitar acceso, actualización o eliminación de tus datos personales,
+      y oponerte a tratamientos no esenciales, en los términos de la normativa argentina
+      de protección de datos personales. Escribinos a
+      <a href="mailto:{{ support_email }}">{{ support_email }}</a>.
+    </p>
+
+    <h2>7. Seguridad</h2>
+    <p>
+      Aplicamos medidas razonables de seguridad técnica y organizativa. Ningún sistema
+      es 100&nbsp;% invulnerable; te pedimos no compartir tu cuenta.
+    </p>
+
+    <h2>8. Cambios</h2>
+    <p>
+      Podemos actualizar esta política. La versión vigente es la publicada en esta página,
+      con su fecha de actualización.
+    </p>
+
+    <p class="hint">
+      Texto base para poner el Servicio en regla de forma clara. No reemplaza un dictamen legal formal.
+    </p>
+  </article>
+{% endblock %}
