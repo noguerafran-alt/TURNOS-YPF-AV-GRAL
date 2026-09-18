@@ -109,6 +109,18 @@ def require_operador(user: User | None = Depends(get_current_user)) -> User:
     return user
 
 
+def require_operador_or_coord(user: User | None = Depends(get_current_user)) -> User:
+    """Foto toma / scan: operador de planta o coordinación/admin."""
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Iniciá sesión.")
+    if not (user.is_operador or user.is_admin):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Se necesita rol de operador o coordinación.",
+        )
+    return user
+
+
 def post_login_path(user: User, next_path: str = "/") -> str:
     """Destino post-login. Si next es genérico, operadores van a su panel."""
     if next_path and next_path not in ("/", ""):

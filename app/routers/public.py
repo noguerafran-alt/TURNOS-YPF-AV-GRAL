@@ -12,7 +12,10 @@ from app.config import settings
 from app.database import get_db
 from app.models import Agenda, Booking, BookingStatus, User, UserAircraft
 from app.slots import build_week
+from app.fuel_banner import resolve_fuel_kind
+from app.matricula import lookup_matricula, normalize_grado, normalize_matricula
 from app.templating import templates
+from app.toma_qr import mint_toma_token, qr_png_data_url, scan_url_for_token
 
 router = APIRouter(tags=["público"])
 
@@ -127,8 +130,52 @@ def my_bookings(
     upcoming.reverse()  # el más próximo primero
     history = [b for b in bookings if b not in upcoming]
 
+    # QR firmado por turno con matrícula (producto canónico del maestro si existe)
+    upcoming_cards = []
+    for b in upcoming:
+        card = {"booking": b, "qr_data_url": None, "scan_url": None, "fuel_label": None, "fuel_kind": ""}
+        mat_key = normalize_matricula(b.aircraft or "")
+        if mat_key:
+            look = lookup_matricula(db, mat_key)
+            fuel_raw = (look.combustible or "").strip() if look.found else ""
+            # Label UX: maestro primero; si no, declarado/agenda (sin QR si no hay maestro)
+            display_raw = fuel_raw or (b.combustible_declarado or "").strip() or (
+                b.agenda.product if b.agenda else ""
+            )
+            kind, label, _ = resolve_fuel_kind(display_raw)
+            fuel_label = label or (normalize_grado(display_raw) if display_raw else "")
+            if fuel_label:
+                card["fuel_label"] = fuel_label
+                card["fuel_kind"] = kind or "unknown"
+            # QR solo con combustible canónico del maestro (fail-closed al escanear)
+            if fuel_raw:
+                m_kind, m_label, _ = resolve_fuel_kind(fuel_raw)
+                product = m_label or normalize_grado(fuel_raw)
+                if product and m_kind in ("jet", "avgas"):
+                    token = mint_toma_token(
+                        booking_id=b.id,
+                        matricula=mat_key,
+                        product=product,
+                        ttl_seconds=max(
+                            3600,
+                            int((b.starts_at - now).total_seconds()) + 12 * 3600,
+                        ),
+                    )
+                    url = scan_url_for_token(token)
+                    card["qr_data_url"] = qr_png_data_url(url)
+                    card["scan_url"] = url
+                    card["fuel_label"] = product
+                    card["fuel_kind"] = m_kind
+        upcoming_cards.append(card)
+
     return templates.TemplateResponse(
         request,
         "mis_turnos.html",
-        {"upcoming": upcoming, "history": history, "user": user, "now": now},
+        {
+            "upcoming": upcoming,
+            "upcoming_cards": upcoming_cards,
+            "history": history,
+            "user": user,
+            "now": now,
+        },
     )

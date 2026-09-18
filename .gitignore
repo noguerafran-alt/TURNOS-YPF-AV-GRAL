@@ -25,3 +25,6 @@ venv/
 Thumbs.db
 .idea/
 .vscode/
+
+# Fotos de toma (dataset local)
+data/tomas/

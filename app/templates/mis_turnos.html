@@ -5,9 +5,10 @@
   <h1>Mis turnos</h1>
 
   <h2 class="subhead">Próximos</h2>
-  {% if upcoming %}
+  {% if upcoming_cards %}
     <ul class="booking-list">
-      {% for booking in upcoming %}
+      {% for card in upcoming_cards %}
+        {% set booking = card.booking %}
         <li class="booking" data-booking="{{ booking.id }}">
           <div class="booking__when">
             <span class="booking__time">{{ booking.starts_at|time }}</span>
@@ -17,7 +18,7 @@
           <div class="booking__body">
             <h3>{{ booking.agenda.full_name }}</h3>
             {% if booking.agenda.location %}<p class="muted">{{ booking.agenda.location }}</p>{% endif %}
-            {% with combustible=booking.combustible_declarado or (booking.agenda.product if booking.agenda else ''),
+            {% with combustible=card.fuel_label or booking.combustible_declarado or (booking.agenda.product if booking.agenda else ''),
                  matricula=booking.aircraft, tipo=booking.aircraft_model,
                  audience='cliente', variant='turno' %}
               {% include 'partials/fuel_banner.html' %}
@@ -36,6 +37,22 @@
             {% if booking.notes %}<p class="muted">{{ booking.notes }}</p>{% endif %}
             {% if booking.agenda and booking.agenda.cancel_limit_hours is not none %}
               <p class="hint">Podés cancelar hasta {{ booking.agenda.cancel_limit_hours }} h antes.</p>
+            {% endif %}
+
+            {% if card.qr_data_url %}
+              <div class="booking__qr">
+                <img class="booking__qr-img" src="{{ card.qr_data_url }}" alt="QR del turno {{ booking.id }}" width="132" height="132" />
+                <div class="booking__qr-meta">
+                  <p style="margin:0 0 .35rem"><strong>Mostrá este QR en planta</strong></p>
+                  <p class="muted" style="margin:0">
+                    {{ booking.agenda.full_name }} · {{ booking.starts_at|time }}<br/>
+                    Matrícula <strong>{{ booking.aircraft }}</strong>
+                    {% if card.fuel_label %} · <strong>{{ card.fuel_label }}</strong>{% endif %}
+                  </p>
+                </div>
+              </div>
+            {% elif booking.aircraft %}
+              <p class="hint">Sin QR: la matrícula no tiene combustible canónico en el maestro.</p>
             {% endif %}
           </div>
 

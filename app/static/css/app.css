@@ -288,21 +288,65 @@ code { font-size: .85em; background: #EEF3F9; padding: .1em .35em; border-radius
   border-radius: var(--radius-pill); font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
   border: 1px solid transparent;
 }
-/* AVGAS: cream / naranja YPF (default) */
+/* AVGAS: tarjeta ROJA completa (código internacional) */
 .agenda-card__badge--avgas {
-  background: var(--accent-soft);
-  color: var(--warn);
-  border-color: rgba(245,165,36,.45);
+  background: var(--fuel-avgas-bg, #C0392B);
+  color: #fff;
+  border-color: rgba(255,255,255,.25);
 }
-/* JET A-1 / JET A1: rojo + negro (coherente fuel banner jet negro + acento rojo) */
+/* JET A-1: badge negro + acento rojo */
 .agenda-card__badge--jet {
   background: var(--fuel-jet-bg, #1C1C1C);
   color: #fff;
   border-color: var(--fuel-avgas-bg, #C0392B);
   box-shadow: inset 3px 0 0 var(--fuel-avgas-bg, #C0392B);
 }
-.agenda-card--jet { border-top-color: #1C1C1C; }
-.agenda-card--avgas { border-top-color: var(--accent); }
+/* Tarjeta entera JET: fondo negro, texto claro */
+.agenda-card--jet {
+  background: #1C1C1C;
+  border-color: #0a0a0a;
+  border-top: 4px solid var(--fuel-avgas-bg, #C0392B);
+  color: #F2F4F7;
+  box-shadow: 0 6px 18px rgba(0,0,0,.28);
+}
+.agenda-card--jet:hover {
+  border-color: var(--fuel-avgas-bg, #C0392B);
+  box-shadow: 0 10px 28px rgba(0,0,0,.38);
+}
+.agenda-card--jet h2,
+.agenda-card--jet .agenda-card__meta dd { color: #fff; }
+.agenda-card--jet .agenda-card__loc,
+.agenda-card--jet .agenda-card__desc,
+.agenda-card--jet .agenda-card__meta dt { color: rgba(255,255,255,.78); }
+.agenda-card--jet .btn {
+  background: #fff;
+  color: #1C1C1C;
+  border-color: #fff;
+}
+.agenda-card--jet .btn:hover { background: #F2F4F7; }
+/* Tarjeta entera AVGAS: fondo rojo, texto blanco */
+.agenda-card--avgas {
+  background: var(--fuel-avgas-bg, #C0392B);
+  border-color: #9B2C20;
+  border-top: 4px solid #7A2218;
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(192,57,43,.28);
+}
+.agenda-card--avgas:hover {
+  border-color: #7A2218;
+  box-shadow: 0 10px 28px rgba(192,57,43,.38);
+}
+.agenda-card--avgas h2,
+.agenda-card--avgas .agenda-card__meta dd { color: #fff; }
+.agenda-card--avgas .agenda-card__loc,
+.agenda-card--avgas .agenda-card__desc,
+.agenda-card--avgas .agenda-card__meta dt { color: rgba(255,255,255,.88); }
+.agenda-card--avgas .btn {
+  background: #fff;
+  color: var(--fuel-avgas-bg, #C0392B);
+  border-color: #fff;
+}
+.agenda-card--avgas .btn:hover { background: #FCEBE9; }
 .agenda-card__loc { display: flex; align-items: center; gap: .35rem; color: var(--muted); font-size: .88rem; margin: 0; }
 .agenda-card__loc svg { width: 16px; height: 16px; flex-shrink: 0; }
 .agenda-card__desc { color: var(--muted); font-size: .9rem; margin: 0; }
@@ -321,6 +365,42 @@ code { font-size: .85em; background: #EEF3F9; padding: .1em .35em; border-radius
 .agenda-head__loc { color: var(--navy-700); font-weight: 500; margin: 0; }
 .agenda-head__actions { display: flex; gap: .6rem; flex-wrap: wrap; }
 .agenda-head__desc { color: var(--muted); margin-bottom: 1.2rem; }
+/* Cabecera con contraste fuerte por grado (misma lógica que landing cards) */
+.agenda-head--jet {
+  background: #1C1C1C;
+  border-color: #0a0a0a;
+  border-left: 6px solid var(--fuel-avgas-bg, #C0392B);
+  color: #F2F4F7;
+}
+.agenda-head--jet h1 { color: #fff; }
+.agenda-head--jet .agenda-head__loc { color: rgba(255,255,255,.85); }
+.agenda-head--jet .muted { color: rgba(255,255,255,.7); }
+.agenda-head--avgas {
+  background: var(--fuel-avgas-bg, #C0392B);
+  border-color: #9B2C20;
+  border-left: 6px solid #7A2218;
+  color: #fff;
+}
+.agenda-head--avgas h1 { color: #fff; }
+.agenda-head--avgas .agenda-head__loc { color: rgba(255,255,255,.92); }
+.agenda-head--avgas .muted { color: rgba(255,255,255,.8); }
+.agenda-head--jet .btn--outline,
+.agenda-head--avgas .btn--outline {
+  background: transparent;
+  color: #fff;
+  border-color: rgba(255,255,255,.65);
+}
+.agenda-head--jet .btn--outline:hover,
+.agenda-head--avgas .btn--outline:hover {
+  background: rgba(255,255,255,.12);
+}
+.agenda-head--jet .btn--accent,
+.agenda-head--avgas .btn--accent {
+  background: #fff;
+  color: #1C1C1C;
+  border-color: #fff;
+}
+.agenda-head--avgas .btn--accent { color: var(--fuel-avgas-bg, #C0392B); }
 
 /* ===== Navegación de semanas ===== */
 .weeknav { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .5rem; margin-bottom: .6rem; }
@@ -1012,3 +1092,34 @@ fieldset.field legend { font-family: var(--font-head); font-size: .88rem; font-w
   .dialog[open],
   .dialog[open]::backdrop { animation: none; }
 }
+
+
+/* ===== QR Mis turnos + scanner operador ===== */
+.booking__qr {
+  display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start;
+  margin-top: .85rem; padding-top: .85rem; border-top: 1px dashed var(--border);
+}
+.booking__qr-img {
+  width: 132px; height: 132px; object-fit: contain;
+  background: #fff; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px;
+}
+.booking__qr-meta { flex: 1; min-width: 160px; font-size: .88rem; }
+.booking__qr-meta code { font-size: .78rem; word-break: break-all; }
+.scan-wrap { max-width: 640px; }
+.scan-reader {
+  width: 100%; max-width: 420px; margin: 0 auto 1rem;
+  border-radius: var(--radius); overflow: hidden; background: #111;
+  border: 2px solid var(--border);
+}
+.scan-reader video { width: 100%; display: block; }
+.toma-preview {
+  max-width: 320px; max-height: 240px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); margin: .6rem 0;
+}
+.confirm-fuel-panel {
+  border-radius: var(--radius); padding: 1.2rem 1.4rem; margin: 1rem 0;
+  color: #fff;
+}
+.confirm-fuel-panel--jet { background: #1C1C1C; border-left: 6px solid #C0392B; }
+.confirm-fuel-panel--avgas { background: #C0392B; border-left: 6px solid #7A2218; }
+.confirm-fuel-panel--unknown { background: var(--surface); color: var(--text); border: 2px solid var(--navy-800); }
