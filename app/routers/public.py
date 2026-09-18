@@ -106,6 +106,44 @@ def agenda_page(
     )
 
 
+
+def _qr_card_for_booking(db: Session, b: Booking, now: datetime) -> dict:
+    """Arma card QR/fuel para un booking (fail-closed: QR solo con maestro jet/avgas)."""
+    card = {"booking": b, "qr_data_url": None, "scan_url": None, "fuel_label": None, "fuel_kind": ""}
+    mat_key = normalize_matricula(b.aircraft or "")
+    if not mat_key:
+        return card
+    look = lookup_matricula(db, mat_key)
+    fuel_raw = (look.combustible or "").strip() if look.found else ""
+    display_raw = fuel_raw or (b.combustible_declarado or "").strip() or (
+        b.agenda.product if b.agenda else ""
+    )
+    kind, label, _ = resolve_fuel_kind(display_raw)
+    fuel_label = label or (normalize_grado(display_raw) if display_raw else "")
+    if fuel_label:
+        card["fuel_label"] = fuel_label
+        card["fuel_kind"] = kind or "unknown"
+    if fuel_raw:
+        m_kind, m_label, _ = resolve_fuel_kind(fuel_raw)
+        product = m_label or normalize_grado(fuel_raw)
+        if product and m_kind in ("jet", "avgas"):
+            token = mint_toma_token(
+                booking_id=b.id,
+                matricula=mat_key,
+                product=product,
+                ttl_seconds=max(
+                    3600,
+                    int((b.starts_at - now).total_seconds()) + 12 * 3600,
+                ),
+            )
+            url = scan_url_for_token(token)
+            card["qr_data_url"] = qr_png_data_url(url)
+            card["scan_url"] = url
+            card["fuel_label"] = product
+            card["fuel_kind"] = m_kind
+    return card
+
+
 @router.get("/mis-turnos")
 def my_bookings(
     request: Request,
@@ -130,43 +168,7 @@ def my_bookings(
     upcoming.reverse()  # el más próximo primero
     history = [b for b in bookings if b not in upcoming]
 
-    # QR firmado por turno con matrícula (producto canónico del maestro si existe)
-    upcoming_cards = []
-    for b in upcoming:
-        card = {"booking": b, "qr_data_url": None, "scan_url": None, "fuel_label": None, "fuel_kind": ""}
-        mat_key = normalize_matricula(b.aircraft or "")
-        if mat_key:
-            look = lookup_matricula(db, mat_key)
-            fuel_raw = (look.combustible or "").strip() if look.found else ""
-            # Label UX: maestro primero; si no, declarado/agenda (sin QR si no hay maestro)
-            display_raw = fuel_raw or (b.combustible_declarado or "").strip() or (
-                b.agenda.product if b.agenda else ""
-            )
-            kind, label, _ = resolve_fuel_kind(display_raw)
-            fuel_label = label or (normalize_grado(display_raw) if display_raw else "")
-            if fuel_label:
-                card["fuel_label"] = fuel_label
-                card["fuel_kind"] = kind or "unknown"
-            # QR solo con combustible canónico del maestro (fail-closed al escanear)
-            if fuel_raw:
-                m_kind, m_label, _ = resolve_fuel_kind(fuel_raw)
-                product = m_label or normalize_grado(fuel_raw)
-                if product and m_kind in ("jet", "avgas"):
-                    token = mint_toma_token(
-                        booking_id=b.id,
-                        matricula=mat_key,
-                        product=product,
-                        ttl_seconds=max(
-                            3600,
-                            int((b.starts_at - now).total_seconds()) + 12 * 3600,
-                        ),
-                    )
-                    url = scan_url_for_token(token)
-                    card["qr_data_url"] = qr_png_data_url(url)
-                    card["scan_url"] = url
-                    card["fuel_label"] = product
-                    card["fuel_kind"] = m_kind
-        upcoming_cards.append(card)
+    upcoming_cards = [_qr_card_for_booking(db, b, now) for b in upcoming]
 
     return templates.TemplateResponse(
         request,
@@ -179,3 +181,40 @@ def my_bookings(
             "now": now,
         },
     )
+
+@router.get("/qr")
+def qr_entry(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User | None = Depends(get_current_user),
+):
+    """Entry único del header: staff → scanner; cliente → QR de la próxima carga."""
+    if user is None:
+        return RedirectResponse("/auth/login?next=/qr", status_code=303)
+
+    # Operador / coord / admin (rampa): escanear
+    if user.is_operador or user.is_admin:
+        return RedirectResponse("/operador/scan", status_code=303)
+
+    now = datetime.now(UTC)
+    bookings = db.scalars(
+        select(Booking)
+        .options(selectinload(Booking.agenda))
+        .where(Booking.user_id == user.id)
+        .order_by(Booking.starts_at.asc())
+    ).all()
+    next_booking = next(
+        (
+            b
+            for b in bookings
+            if b.status == BookingStatus.CONFIRMED and b.starts_at > now
+        ),
+        None,
+    )
+    card = _qr_card_for_booking(db, next_booking, now) if next_booking else None
+    return templates.TemplateResponse(
+        request,
+        "qr.html",
+        {"user": user, "card": card, "now": now},
+    )
+

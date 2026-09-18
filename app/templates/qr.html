@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Mi QR{% endblock %}
+
+{% block content %}
+  <h1>Mi QR de carga</h1>
+
+  {% if card and card.booking %}
+    {% set booking = card.booking %}
+    <section class="qr-page">
+      <p class="muted" style="margin-top:0">Mostrá este código al operario en planta para confirmar el combustible.</p>
+
+      {% with combustible=card.fuel_label or booking.combustible_declarado or (booking.agenda.product if booking.agenda else ''),
+           matricula=booking.aircraft, tipo=booking.aircraft_model,
+           audience='cliente', variant='turno' %}
+        {% include 'partials/fuel_banner.html' %}
+      {% endwith %}
+
+      <dl class="qr-page__meta">
+        <div><dt>Planta</dt><dd>{{ booking.agenda.full_name if booking.agenda else "—" }}</dd></div>
+        {% if booking.agenda and booking.agenda.location %}
+          <div><dt>Ubicación</dt><dd>{{ booking.agenda.location }}</dd></div>
+        {% endif %}
+        <div><dt>Horario</dt><dd>{{ booking.starts_at|date_long }} · {{ booking.starts_at|time }}</dd></div>
+        <div><dt>Matrícula</dt><dd><strong>{{ booking.aircraft or "—" }}</strong></dd></div>
+        {% if card.fuel_label %}
+          <div><dt>Combustible</dt><dd><strong>{{ card.fuel_label }}</strong></dd></div>
+        {% endif %}
+      </dl>
+
+      {% if card.qr_data_url %}
+        <div class="qr-page__code">
+          <img src="{{ card.qr_data_url }}" alt="QR del próximo turno" width="220" height="220" />
+        </div>
+      {% else %}
+        <p class="notice">
+          Este turno todavía no tiene QR firmado
+          {% if not booking.aircraft %}(falta matrícula)
+          {% else %}(la matrícula no está en el maestro de combustible)
+          {% endif %}.
+          Revisá <a href="/mis-turnos">Mis turnos</a> o pedí ayuda en planta.
+        </p>
+      {% endif %}
+
+      <p class="hint"><a href="/mis-turnos">Ver todos mis turnos</a></p>
+    </section>
+  {% else %}
+    <div class="empty">
+      <h2>No tenés una próxima carga</h2>
+      <p>Cuando reserves un turno con matrícula, acá va a aparecer el QR para mostrar en planta.</p>
+      <p><a class="btn" href="/">Reservar turno</a>
+         <a class="btn btn--outline" href="/mis-turnos">Mis turnos</a></p>
+    </div>
+  {% endif %}
+{% endblock %}
