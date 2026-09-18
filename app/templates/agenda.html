@@ -224,7 +224,7 @@
         <button class="dialog__close" aria-label="Cerrar">×</button>
       </form>
       <h2>Información importante</h2>
-      <div class="dialog__body prose">{{ agenda.important_info | replace("\n", "<br>") | safe }}</div>
+      <div class="dialog__body prose">{{ agenda.important_info | e | replace("\n", "<br>"|safe) }}</div>
       <div class="dialog__actions">
         <button type="button" class="btn btn--accent" data-dialog-close>Entendido</button>
       </div>
