@@ -24,6 +24,8 @@
       </a>
 
       <nav class="topbar__nav" aria-label="Navegación principal">
+        {% set path = request.url.path if request is defined else "" %}
+        <a class="topbar__qr{% if path == '/qr' or path.startswith('/operador/scan') or path.startswith('/operador/s/') %} is-active{% endif %}" href="/qr"{% if not user %} title="Iniciá sesión para usar el QR"{% endif %}>QR</a>
         <a href="/">Aeroplantas</a>
         {% if user %}
           <a href="/mis-turnos">Mis turnos</a>
@@ -35,17 +37,12 @@
                 <span class="topbar__staff-icon" aria-hidden="true">☰</span>
               </summary>
               <div class="topbar__staff-menu" role="menu">
-                {% set path = request.url.path if request is defined else "" %}
                 {% set nav_dash = path.startswith('/coord/dashboard') %}
                 {% set nav_agenda = path.startswith('/coord/agenda') %}
                 {% set nav_mae = path.startswith('/coord/maestros') %}
                 {% set nav_coord = path.startswith('/coord') and not nav_dash and not nav_agenda and not nav_mae %}
                 {% if user.is_operador %}
-                  <a class="topbar__admin{% if path == '/operador' or path.startswith('/operador/') and not path.startswith('/operador/scan') and not path.startswith('/operador/s/') %} is-active{% endif %}" role="menuitem" href="/operador">Operador</a>
-                  <a class="topbar__admin{% if path.startswith('/operador/scan') or path.startswith('/operador/s/') %} is-active{% endif %}" role="menuitem" href="/operador/scan">Escanear QR</a>
-                {% endif %}
-                {% if user.is_admin and not user.is_operador %}
-                  <a class="topbar__admin{% if path.startswith('/operador/scan') or path.startswith('/operador/s/') %} is-active{% endif %}" role="menuitem" href="/operador/scan">Escanear QR</a>
+                  <a class="topbar__admin{% if path == '/operador' or path.startswith('/operador/') %} is-active{% endif %}" role="menuitem" href="/operador">Operador</a>
                 {% endif %}
                 {% if user.is_admin %}
                   <a class="topbar__admin{% if nav_dash %} is-active{% endif %}" role="menuitem" href="/coord/dashboard">Dashboard</a>

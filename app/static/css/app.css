@@ -107,7 +107,14 @@ code { font-size: .85em; background: #EEF3F9; padding: .1em .35em; border-radius
   display: flex; align-items: center; flex-wrap: wrap;
   gap: clamp(16px, 2vw, 28px);
 }
+.topbar__qr {
+  font-weight: 700 !important;
+  color: var(--accent-dark) !important;
+  letter-spacing: .04em;
+}
+.topbar__qr.is-active { color: var(--navy-800) !important; }
 .topbar__nav > a {
+
   color: var(--navy-800); font-size: .92rem; font-weight: 500;
   position: relative; text-decoration: none;
   transition: color var(--motion-fast) var(--ease-out);
@@ -1155,3 +1162,20 @@ fieldset.field legend { font-family: var(--font-head); font-size: .88rem; font-w
 .confirm-fuel-panel--jet { background: #1C1C1C; border-left: 6px solid #C0392B; }
 .confirm-fuel-panel--avgas { background: #C0392B; border-left: 6px solid #7A2218; }
 .confirm-fuel-panel--unknown { background: var(--surface); color: var(--text); border: 2px solid var(--navy-800); }
+
+/* Página /qr — QR próximo turno (cliente) */
+.qr-page { max-width: 28rem; }
+.qr-page__meta {
+  display: grid; gap: .45rem 1rem; margin: 1rem 0 1.25rem;
+  grid-template-columns: auto 1fr; font-size: .92rem;
+}
+.qr-page__meta dt { color: var(--muted); margin: 0; }
+.qr-page__meta dd { margin: 0; font-weight: 600; }
+.qr-page__meta > div { display: contents; }
+.qr-page__code {
+  display: flex; justify-content: center; padding: 1rem;
+  background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--elev-1); margin-bottom: 1rem;
+}
+.qr-page__code img { display: block; width: 220px; height: 220px; }
+
