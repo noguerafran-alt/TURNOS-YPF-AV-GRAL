@@ -135,8 +135,9 @@ code { font-size: .85em; background: #EEF3F9; padding: .1em .35em; border-radius
 .topbar__staff { position: relative; }
 .topbar__staff-trigger {
   list-style: none; cursor: pointer;
-  display: inline-flex; align-items: center; gap: .4rem;
-  padding: .35rem .75rem;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: .4rem .55rem;
+  min-width: 2.1rem;
   font-family: var(--font-head); font-size: .88rem; font-weight: 700;
   color: var(--accent-dark);
   background: var(--accent-soft);
