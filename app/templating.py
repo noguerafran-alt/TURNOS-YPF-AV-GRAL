@@ -1,9 +1,11 @@
 """Configuración de Jinja2 y filtros compartidos por todas las plantillas."""
 
+import json
 from datetime import datetime
 from pathlib import Path
 
 from fastapi.templating import Jinja2Templates
+from markupsafe import Markup
 
 from app.config import settings
 from app.fuel_banner import build_fuel_banner, fuel_banner_dict
@@ -66,6 +68,13 @@ templates.env.filters["datetime"] = fmt_datetime
 templates.env.filters["datetime_short"] = fmt_datetime_short
 templates.env.filters["weekday"] = weekday_name
 templates.env.filters["month_short"] = month_short
+
+
+def _tojson(value) -> Markup:
+    return Markup(json.dumps(value, ensure_ascii=False))
+
+
+templates.env.filters["tojson"] = _tojson
 
 # Disponibles en todas las plantillas sin pasarlas por contexto
 templates.env.globals["company_name"] = settings.company_name

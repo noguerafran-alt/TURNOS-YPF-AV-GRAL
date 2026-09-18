@@ -1,6 +1,7 @@
 """Configuración de la app, leída de variables de entorno (.env en local)."""
 
 import os
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
@@ -91,6 +92,17 @@ class Settings:
         # Acepta cualquiera de las dos; si ninguna está seteada, /external/v1 responde 503.
         self.ypf_api_key: str = os.getenv("YPF_API_KEY", "")
         self.external_api_key: str = os.getenv("EXTERNAL_API_KEY", "")
+
+        # --- QR toma / scan operario ---
+        # Si TOMA_QR_SECRET está vacío se reutiliza SECRET_KEY (ok; podés rotarlo aparte).
+        self.toma_qr_secret: str = (
+            os.getenv("TOMA_QR_SECRET", "").strip() or self.secret_key
+        )
+        # TTL del token QR (default 48 h).
+        self.toma_qr_ttl_seconds: int = int(os.getenv("TOMA_QR_TTL_SECONDS", str(48 * 3600)))
+        # Fotos de toma: disco Render /var/data o fallback local.
+        default_toma = "/var/data/tomas" if Path("/var/data").is_dir() else "data/tomas"
+        self.toma_storage_dir: str = os.getenv("TOMA_STORAGE_DIR", default_toma)
 
     @property
     def tz(self) -> ZoneInfo:

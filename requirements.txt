@@ -10,3 +10,5 @@ httpx==0.28.1
 itsdangerous==2.2.0
 python-dotenv==1.0.1
 openpyxl==3.1.5
+qrcode[pil]==8.2
+Pillow==11.1.0

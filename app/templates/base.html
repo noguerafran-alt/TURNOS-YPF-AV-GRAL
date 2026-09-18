@@ -41,7 +41,11 @@
                 {% set nav_mae = path.startswith('/coord/maestros') %}
                 {% set nav_coord = path.startswith('/coord') and not nav_dash and not nav_agenda and not nav_mae %}
                 {% if user.is_operador %}
-                  <a class="topbar__admin{% if path.startswith('/operador') %} is-active{% endif %}" role="menuitem" href="/operador">Operador</a>
+                  <a class="topbar__admin{% if path == '/operador' or path.startswith('/operador/') and not path.startswith('/operador/scan') and not path.startswith('/operador/s/') %} is-active{% endif %}" role="menuitem" href="/operador">Operador</a>
+                  <a class="topbar__admin{% if path.startswith('/operador/scan') or path.startswith('/operador/s/') %} is-active{% endif %}" role="menuitem" href="/operador/scan">Escanear QR</a>
+                {% endif %}
+                {% if user.is_admin and not user.is_operador %}
+                  <a class="topbar__admin{% if path.startswith('/operador/scan') or path.startswith('/operador/s/') %} is-active{% endif %}" role="menuitem" href="/operador/scan">Escanear QR</a>
                 {% endif %}
                 {% if user.is_admin %}
                   <a class="topbar__admin{% if nav_dash %} is-active{% endif %}" role="menuitem" href="/coord/dashboard">Dashboard</a>

@@ -558,3 +558,41 @@ class UserAircraft(Base):
     __table_args__ = (
         UniqueConstraint("user_id", "matricula", name="uq_user_aircraft_user_matricula"),
     )
+
+
+class TomaFoto(Base):
+    """Foto de boca de carga / toma — dataset por matrícula (sin vision)."""
+
+    __tablename__ = "toma_fotos"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    matricula: Mapped[str] = mapped_column(String(40), index=True)
+    booking_id: Mapped[int | None] = mapped_column(
+        ForeignKey("bookings.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    path: Mapped[str] = mapped_column(String(500))
+    sha256: Mapped[str] = mapped_column(String(64), default="")
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
+
+    booking: Mapped["Booking | None"] = relationship()
+    user: Mapped["User"] = relationship()
+
+
+class FuelScanLog(Base):
+    """Bitácora: operario escaneó QR / confirmó producto a cargar (fail-closed)."""
+
+    __tablename__ = "fuel_scan_log"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    booking_id: Mapped[int | None] = mapped_column(
+        ForeignKey("bookings.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    matricula: Mapped[str] = mapped_column(String(40), default="", index=True)
+    product_shown: Mapped[str] = mapped_column(String(80), default="")
+    confirmed: Mapped[bool] = mapped_column(Boolean, default=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, server_default=func.now())
+
+    booking: Mapped["Booking | None"] = relationship()
+    user: Mapped["User"] = relationship()

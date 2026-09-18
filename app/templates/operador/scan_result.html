@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}{% if error %}Error de scan{% else %}Confirmar combustible{% endif %}{% endblock %}
+
+{% block content %}
+<div class="scan-wrap">
+  <div class="panel-head">
+    <div>
+      <h1>{% if error %}No se puede confirmar{% else %}Confirmar producto{% endif %}</h1>
+      <p class="muted" style="margin:0">Fail-closed: solo el grado del maestro. No habilita el pico.</p>
+    </div>
+    <a class="btn btn--outline btn--sm" href="/operador/scan">← Scanner</a>
+  </div>
+
+  {% if error %}
+    <div class="alert alert--error">{{ error }}</div>
+    {% if payload %}
+      <p class="muted">Matrícula en token: <strong>{{ payload.matricula }}</strong> · Turno #{{ payload.booking_id }}</p>
+    {% endif %}
+  {% else %}
+    <div class="confirm-fuel-panel confirm-fuel-panel--{{ fuel_kind }}">
+      <p style="margin:0;opacity:.9;font-size:.85rem">Combustible del maestro</p>
+      <h2 style="margin:.2rem 0 .4rem;color:inherit;font-size:1.6rem">{{ fuel_label }}</h2>
+      <p style="margin:0">Matrícula <strong>{{ payload.matricula }}</strong></p>
+    </div>
+
+    <div class="panel" style="padding:1.2rem;margin-bottom:1rem">
+      <p><strong>Turno #{{ payload.booking_id }}</strong>
+        {% if booking %}
+          · {{ booking.starts_at|time }} · {{ booking.agenda.full_name if booking.agenda else '' }}
+        {% endif %}
+      </p>
+      {% if booking and booking.aircraft_model %}
+        <p class="muted">Modelo: {{ booking.aircraft_model }}</p>
+      {% endif %}
+      <button type="button" class="btn btn--accent" id="btn-confirm">Confirmar producto a cargar</button>
+      <p class="hint" id="confirm-msg" hidden></p>
+    </div>
+
+    <div class="panel" style="padding:1.2rem" id="toma-panel">
+      <h2>Foto de la toma</h2>
+      <p class="muted">Boca de carga — para entrenamiento. Una por ahora (podés agregar más después).</p>
+      <div class="field">
+        <label for="toma-mat">Matrícula</label>
+        <input type="text" id="toma-mat" name="matricula" value="{{ payload.matricula }}" data-matricula-input maxlength="40" />
+      </div>
+      <div class="field">
+        <label for="toma-file">Foto (JPG / PNG / WebP, máx. 10 MB)</label>
+        <input type="file" id="toma-file" accept="image/jpeg,image/png,image/webp,capture=environment" capture="environment" />
+      </div>
+      <img id="toma-preview" class="toma-preview" alt="" hidden />
+      <button type="button" class="btn" id="btn-upload" disabled>Subir foto de toma</button>
+      <p class="hint" id="upload-msg"></p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if not error %}
+<script>
+(function () {
+  'use strict';
+  const token = {{ token|tojson }};
+  const bookingId = {{ payload.booking_id|tojson }};
+  const confirmBtn = document.getElementById('btn-confirm');
+  const confirmMsg = document.getElementById('confirm-msg');
+  const fileInput = document.getElementById('toma-file');
+  const uploadBtn = document.getElementById('btn-upload');
+  const uploadMsg = document.getElementById('upload-msg');
+  const preview = document.getElementById('toma-preview');
+  const matInput = document.getElementById('toma-mat');
+
+  confirmBtn.addEventListener('click', async () => {
+    confirmBtn.disabled = true;
+    try {
+      const res = await fetch('/operador/api/scan/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ token }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'No se pudo confirmar');
+      confirmMsg.hidden = false;
+      confirmMsg.textContent = data.message || 'Confirmado.';
+      confirmMsg.className = 'hint';
+      confirmMsg.style.color = 'var(--ok)';
+    } catch (e) {
+      confirmMsg.hidden = false;
+      confirmMsg.textContent = e.message || 'Error';
+      confirmMsg.style.color = 'var(--danger)';
+      confirmBtn.disabled = false;
+    }
+  });
+
+  fileInput.addEventListener('change', () => {
+    const f = fileInput.files && fileInput.files[0];
+    uploadBtn.disabled = !f;
+    if (f) {
+      preview.src = URL.createObjectURL(f);
+      preview.hidden = false;
+    } else {
+      preview.hidden = true;
+    }
+  });
+
+  uploadBtn.addEventListener('click', async () => {
+    const f = fileInput.files && fileInput.files[0];
+    if (!f) return;
+    uploadBtn.disabled = true;
+    uploadMsg.textContent = 'Subiendo…';
+    const fd = new FormData();
+    fd.append('matricula', matInput.value || '');
+    fd.append('booking_id', String(bookingId));
+    fd.append('file', f);
+    try {
+      const res = await fetch('/operador/api/toma-foto', { method: 'POST', body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Error al subir');
+      uploadMsg.textContent = data.message || 'Guardada.';
+      uploadMsg.style.color = 'var(--ok)';
+      fileInput.value = '';
+      uploadBtn.disabled = true;
+    } catch (e) {
+      uploadMsg.textContent = e.message || 'Error';
+      uploadMsg.style.color = 'var(--danger)';
+      uploadBtn.disabled = false;
+    }
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

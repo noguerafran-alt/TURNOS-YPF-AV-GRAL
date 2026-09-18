@@ -93,3 +93,8 @@ services:
       # --- API externa YPF (READ-ONLY). Completar en el dashboard; no hardcodear. ---
       - key: YPF_API_KEY
         sync: false
+
+      # --- QR toma / scan (opcional; si no está, se usa SECRET_KEY) ---
+      - key: TOMA_QR_SECRET
+        sync: false
+

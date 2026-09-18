@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Escanear QR{% endblock %}
+
+{% block head %}
+<style>
+  .scan-paste { display: flex; flex-wrap: wrap; gap: .5rem; align-items: flex-end; margin-top: 1rem; }
+  .scan-paste .field { flex: 1; min-width: 200px; margin: 0; }
+</style>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
+{% endblock %}
+
+{% block content %}
+<div class="scan-wrap">
+  <div class="panel-head">
+    <div>
+      <h1>Escanear QR del turno</h1>
+      <p class="muted" style="margin:0">Cámara o pegá el token. Confirmá el combustible del maestro y sacá la foto de la toma.</p>
+    </div>
+    <a class="btn btn--outline btn--sm" href="/operador">← Mis turnos</a>
+  </div>
+
+  <div class="panel" style="padding:1.2rem">
+    <div id="reader" class="scan-reader"></div>
+    <p class="muted" id="scan-status" style="text-align:center">Iniciando cámara…</p>
+
+    <div class="scan-paste">
+      <div class="field">
+        <label for="token-paste">O pegá el token / URL</label>
+        <input type="text" id="token-paste" placeholder="Token o link /operador/s/…" autocomplete="off" />
+      </div>
+      <button type="button" class="btn btn--accent" id="btn-paste">Abrir</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  'use strict';
+  const statusEl = document.getElementById('scan-status');
+
+  function extractToken(raw) {
+    const s = String(raw || '').trim();
+    if (!s) return '';
+    try {
+      const u = new URL(s, window.location.origin);
+      const m = u.pathname.match(/\/operador\/s\/([^/?#]+)/);
+      if (m) return decodeURIComponent(m[1]);
+      const t = u.searchParams.get('t');
+      if (t) return t;
+    } catch (_) {}
+    const m2 = s.match(/\/operador\/s\/([^/?#\s]+)/);
+    if (m2) return decodeURIComponent(m2[1]);
+    return s;
+  }
+
+  function go(token) {
+    const t = extractToken(token);
+    if (!t) { alert('Pegá un token o URL válidos.'); return; }
+    window.location.href = '/operador/s/' + encodeURIComponent(t);
+  }
+
+  document.getElementById('btn-paste').addEventListener('click', () => {
+    go(document.getElementById('token-paste').value);
+  });
+  document.getElementById('token-paste').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); go(e.target.value); }
+  });
+
+  function startCam() {
+    if (!window.Html5Qrcode) {
+      statusEl.textContent = 'No se pudo cargar el lector. Usá el campo de texto.';
+      return;
+    }
+    const scanner = new Html5Qrcode('reader');
+    Html5Qrcode.getCameras().then((cams) => {
+      if (!cams || !cams.length) {
+        statusEl.textContent = 'Sin cámara. Pegá el token abajo.';
+        return;
+      }
+      const back = cams.find((c) => /back|rear|environment/i.test(c.label)) || cams[cams.length - 1];
+      statusEl.textContent = 'Apuntá al QR del cliente…';
+      scanner.start(
+        back.id,
+        { fps: 8, qrbox: { width: 240, height: 240 } },
+        (decoded) => {
+          scanner.stop().catch(() => {});
+          go(decoded);
+        },
+        () => {}
+      ).catch(() => {
+        statusEl.textContent = 'No se pudo abrir la cámara. Pegá el token abajo.';
+      });
+    }).catch(() => {
+      statusEl.textContent = 'Sin permiso de cámara. Pegá el token abajo.';
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(startCam, 200));
+  } else {
+    setTimeout(startCam, 200);
+  }
+})();
+</script>
+{% endblock %}

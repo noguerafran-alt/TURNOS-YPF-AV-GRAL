@@ -107,11 +107,18 @@ app.include_router(external_ypf.router)
 async def http_exception_handler(request: Request, exc: HTTPException):
     """Las llamadas a /api responden JSON; el resto, una página de error."""
     path = request.url.path
+    # HTML del panel operador (/operador, /scan, /s/<token>) → página de error;
+    # el resto de /operador/* (board, api, bookings) → JSON.
+    operador_html = (
+        path == "/operador"
+        or path.startswith("/operador/scan")
+        or path.startswith("/operador/s/")
+    )
     wants_json = (
         path.startswith("/api")
         or path.startswith("/external/")
         or path.startswith("/coord/")
-        or path.startswith("/operador/")
+        or (path.startswith("/operador/") and not operador_html)
         or path.startswith("/admin/abastecedoras")
         or path.startswith("/coord/maestros")
     )

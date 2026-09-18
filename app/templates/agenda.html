@@ -7,9 +7,10 @@
   </nav>
 
   <!-- ===== Encabezado de la agenda ===== -->
-  <section class="agenda-head">
+  {% set _prod = (agenda.product or "")|upper %}
+  {% set _head_mod = "agenda-head--jet" if ("JET" in _prod) else ("agenda-head--avgas" if ("AVGAS" in _prod or "100LL" in _prod) else "") %}
+  <section class="agenda-head {{ _head_mod }}">
     <div>
-      {% set _prod = (agenda.product or "")|upper %}
       {% set _badge_mod = "agenda-card__badge--jet" if ("JET" in _prod) else ("agenda-card__badge--avgas" if ("AVGAS" in _prod or "100LL" in _prod) else "") %}
       <span class="agenda-card__badge {{ _badge_mod }}">{{ agenda.product or "Turnos" }}</span>
       <h1>{{ agenda.name }}</h1>
