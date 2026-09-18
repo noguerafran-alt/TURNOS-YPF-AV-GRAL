@@ -171,6 +171,18 @@ code { font-size: .85em; background: #EEF3F9; padding: .1em .35em; border-radius
 }
 .topbar__staff-menu a:focus-visible { box-shadow: var(--ring-focus); outline: none; }
 
+.topbar__staff-menu a.is-active {
+  color: var(--navy-800);
+  font-weight: 600;
+  background: #EEF3FA;
+  box-shadow: inset 3px 0 0 var(--navy-800);
+}
+.topbar__staff-menu a.is-active:hover {
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+
+
 /* ===== Botones ===== */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
@@ -597,12 +609,14 @@ fieldset.field legend { font-family: var(--font-head); font-size: .88rem; font-w
 
 /* ===== Staff pages (☰): headers / filtros / cards unificados YPF ===== */
 .staff-page { max-width: 1180px; margin: 0 auto; }
+.page-head,
 .panel-head,
 .staff-page__head {
   display: flex; flex-wrap: wrap; gap: 1rem;
   align-items: flex-end; justify-content: space-between;
   margin-bottom: 1.1rem;
 }
+.page-head h1,
 .panel-head h1,
 .staff-page__head h1,
 .staff-page h1 {
@@ -613,6 +627,7 @@ fieldset.field legend { font-family: var(--font-head); font-size: .88rem; font-w
   font-family: var(--font-head);
   color: var(--text);
 }
+.page-head .muted,
 .panel-head .muted,
 .staff-page__head .muted { margin: .35rem 0 0; max-width: 62ch; }
 .staff-page__actions {
