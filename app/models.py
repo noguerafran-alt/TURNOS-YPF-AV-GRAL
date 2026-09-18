@@ -163,6 +163,9 @@ class User(Base):
     invitaciones_enviadas: Mapped[list["InvitacionEmpresa"]] = relationship(
         back_populates="invited_by_user", foreign_keys="InvitacionEmpresa.invited_by"
     )
+    agenda_links: Mapped[list["UserAgenda"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
     @property
     def display_name(self) -> str:
@@ -304,6 +307,9 @@ class Agenda(Base):
         back_populates="agenda", cascade="all, delete-orphan", order_by="Closure.starts_at"
     )
     bookings: Mapped[list["Booking"]] = relationship(back_populates="agenda")
+    user_links: Mapped[list["UserAgenda"]] = relationship(
+        back_populates="agenda", cascade="all, delete-orphan"
+    )
 
     @property
     def full_name(self) -> str:
