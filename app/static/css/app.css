@@ -355,6 +355,38 @@ code { font-size: .85em; background: #EEF3F9; padding: .1em .35em; border-radius
 .agenda-card__meta dd { margin: 0; font-weight: 600; }
 .agenda-card .btn { margin-top: auto; }
 
+/* Fuel banner como logo arriba de la card (reemplaza pills de texto) */
+.agenda-card .fuel-banner {
+  width: 100%;
+  margin: 0 0 .55rem;
+  padding: .55rem .75rem;
+  box-sizing: border-box;
+}
+.agenda-card .fuel-banner__title { font-size: 1.05rem; }
+.agenda-card .fuel-banner__sub { font-size: .7rem; opacity: .95; }
+.agenda-card--jet .fuel-banner--jet {
+  border: 2px solid rgba(255,255,255,.38);
+  box-shadow: inset 4px 0 0 var(--fuel-avgas-bg, #C0392B);
+}
+.agenda-card--avgas .fuel-banner--avgas {
+  border: 2px solid rgba(255,255,255,.42);
+  background: #A93226 !important;
+}
+.agenda-head .fuel-banner {
+  width: min(100%, 22rem);
+  margin: 0 0 .55rem;
+  padding: .55rem .85rem;
+}
+.agenda-head--jet .fuel-banner--jet {
+  border: 2px solid rgba(255,255,255,.38);
+  box-shadow: inset 4px 0 0 var(--fuel-avgas-bg, #C0392B);
+}
+.agenda-head--avgas .fuel-banner--avgas {
+  border: 2px solid rgba(255,255,255,.42);
+  background: #A93226 !important;
+}
+
+
 /* ===== Cabecera de agenda ===== */
 .agenda-head {
   display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: flex-start;
