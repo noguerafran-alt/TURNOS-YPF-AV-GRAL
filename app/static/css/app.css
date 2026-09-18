@@ -1243,3 +1243,17 @@ fieldset.field legend { font-family: var(--font-head); font-size: .88rem; font-w
 }
 .qr-page__code img { display: block; width: 220px; height: 220px; }
 
+/* ===== Páginas legales (términos / privacidad) ===== */
+.footer__links {
+  display: flex; flex-wrap: wrap; gap: .35rem 1rem;
+  margin: .65rem 0 .35rem; font-size: .88rem;
+}
+.footer__links a { color: var(--navy-700); font-weight: 500; }
+.footer__links a:hover { color: var(--accent-dark); }
+.legal-page { max-width: 42rem; }
+.legal-page h1 { margin-bottom: .35rem; }
+.legal-page .legal-updated { color: var(--muted); font-size: .88rem; margin: 0 0 1.4rem; }
+.legal-page h2 { margin: 1.4rem 0 .45rem; font-size: 1.05rem; }
+.legal-page p, .legal-page li { color: var(--navy-800); line-height: 1.55; }
+.legal-page ul { padding-left: 1.2rem; margin: .4rem 0 1rem; }
+.legal-page li { margin: .25rem 0; }
