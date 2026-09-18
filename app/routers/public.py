@@ -11,7 +11,7 @@ from app.auth import get_current_user
 from app.config import settings
 from app.database import get_db
 from app.models import Agenda, Booking, BookingStatus, User, UserAircraft
-from app.slots import build_week, week_start
+from app.slots import build_week
 from app.templating import templates
 
 router = APIRouter(tags=["público"])
@@ -53,16 +53,23 @@ def agenda_page(
     if agenda is None or (not agenda.is_active and not (user and user.is_admin)):
         raise HTTPException(status_code=404, detail="No encontramos esa agenda.")
 
-    selected_day = _parse_day(d)
-    monday = week_start(selected_day)
     today = datetime.now(settings.tz).date()
+    selected_day = _parse_day(d)
+    # No arrancar antes de hoy (BA): días pasados fuera de la grilla.
+    if selected_day < today:
+        selected_day = today
+    grid_start = selected_day
 
-    week = build_week(db, agenda, monday, user_id=user.id if user else None)
+    week = build_week(db, agenda, grid_start, user_id=user.id if user else None)
 
-    # Límites de navegación: no se muestran semanas fuera de la ventana de reserva
+    # Navegación: flechas = día a día; mes ant/sig = ±30 días.
     horizon = today + timedelta(days=agenda.horizon_days)
-    prev_monday = monday - timedelta(days=7)
-    next_monday = monday + timedelta(days=7)
+    prev_day = selected_day - timedelta(days=1)
+    next_day = selected_day + timedelta(days=1)
+    prev_month = selected_day - timedelta(days=30)
+    next_month = selected_day + timedelta(days=30)
+    if prev_month < today:
+        prev_month = today
 
     mis_aeronaves = []
     if user is not None:
@@ -80,15 +87,16 @@ def agenda_page(
         {
             "agenda": agenda,
             "week": week,
-            "monday": monday,
-            "sunday": monday + timedelta(days=6),
+            "monday": grid_start,  # inicio de grilla (compat template)
+            "sunday": grid_start + timedelta(days=6),
             "selected_day": selected_day,
             "today": today,
             "user": user,
-            "prev_monday": prev_monday if prev_monday + timedelta(days=6) >= today else None,
-            "next_monday": next_monday if next_monday <= horizon else None,
-            "prev_month": monday - timedelta(days=30),
-            "next_month": monday + timedelta(days=30),
+            # Reutilizamos nombres prev/next_monday = día anterior/siguiente
+            "prev_monday": prev_day if prev_day >= today else None,
+            "next_monday": next_day if next_day <= horizon else None,
+            "prev_month": prev_month if prev_month <= horizon else None,
+            "next_month": next_month if next_month <= horizon else selected_day,
             "max_liters": 20000,
             "mis_aeronaves": mis_aeronaves,
         },
