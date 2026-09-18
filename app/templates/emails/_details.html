@@ -3,7 +3,7 @@
        style="background:#F4F7FB;border:1px solid #DCE4EE;border-radius:10px;margin:0 0 20px;">
   <tr>
     <td style="padding:18px 20px;">
-{# Banner grado — inline styles (email clients) #}
+{# Banner grado — PNG (clientes de email flojos con SVG); URL absoluta #}
 {% set _fb = build_fuel_banner(
      combustible=combustible_declarado|default(''),
      matricula=aircraft|default(''),
@@ -13,16 +13,29 @@
 ) %}
 {% if _fb.show %}
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-         style="background:{{ _fb.bg }};border-radius:12px;margin:0 0 16px;">
+         style="background:{% if _fb.logo_png %}transparent{% else %}{{ _fb.bg }}{% endif %};border-radius:12px;margin:0 0 16px;">
     <tr>
-      <td style="padding:14px 16px;text-align:center;">
-        <p style="margin:0 0 4px;font-size:20px;font-weight:700;font-family:Arial,Helvetica,sans-serif;color:#FFFFFF;letter-spacing:.04em;text-transform:uppercase;">
-          ⛽ {{ _fb.label }}
-        </p>
-        {% if _fb.subline %}
-          <p style="margin:0;font-size:12px;font-family:Arial,Helvetica,sans-serif;color:#FFFFFF;opacity:.92;line-height:1.35;">
-            {{ _fb.subline }}
+      <td style="padding:{% if _fb.logo_png %}0 0 8px{% else %}14px 16px{% endif %};text-align:center;">
+        {% if _fb.logo_png %}
+          <img src="{{ base_url }}{{ _fb.logo_png }}"
+               alt="{{ _fb.logo_alt }}"
+               width="320"
+               height="48"
+               style="display:block;width:100%;max-width:320px;height:auto;margin:0 auto;border:0;border-radius:10px;" />
+          {% if _fb.subline %}
+            <p style="margin:8px 0 0;font-size:12px;font-family:Arial,Helvetica,sans-serif;color:#5A6A7D;opacity:.92;line-height:1.35;">
+              {{ _fb.subline }}
+            </p>
+          {% endif %}
+        {% else %}
+          <p style="margin:0 0 4px;font-size:20px;font-weight:700;font-family:Arial,Helvetica,sans-serif;color:#FFFFFF;letter-spacing:.04em;text-transform:uppercase;">
+            ⛽ {{ _fb.label }}
           </p>
+          {% if _fb.subline %}
+            <p style="margin:0;font-size:12px;font-family:Arial,Helvetica,sans-serif;color:#FFFFFF;opacity:.92;line-height:1.35;">
+              {{ _fb.subline }}
+            </p>
+          {% endif %}
         {% endif %}
       </td>
     </tr>

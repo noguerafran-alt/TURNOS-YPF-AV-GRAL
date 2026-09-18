@@ -1,9 +1,22 @@
-/* Banner grado combustible — código de color internacional (AVGAS rojo / JET negro). */
+/* Banner grado combustible — logos oficiales (AVGAS rojo / JET negro). */
 'use strict';
 
 (function (global) {
   const AVGAS_BG = '#C0392B';
   const JET_BG = '#1C1C1C';
+
+  const LOGO = {
+    jet: {
+      svg: '/static/img/fuel/jet-a1.svg',
+      png: '/static/img/fuel/jet-a1-oficial.png',
+      alt: 'JET A-1',
+    },
+    avgas: {
+      svg: '/static/img/fuel/avgas-100ll.svg',
+      png: '/static/img/fuel/avgas-100ll-oficial.png',
+      alt: 'AVGAS 100 LL',
+    },
+  };
 
   function escapeHtml(s) {
     return String(s ?? '').replace(/[&<>"']/g, (c) => (
@@ -32,6 +45,20 @@
     return { kind: 'unknown', label: raw, colorCode: '' };
   }
 
+  function logoMarkup(kind, { chip } = {}) {
+    const L = LOGO[kind];
+    if (!L) return '';
+    const cls = chip ? 'chip__logo' : 'fuel-banner__logo';
+    const wh = chip ? ' width="120" height="18"' : ' width="480" height="72"';
+    return (
+      '<picture' + (chip ? '' : ' class="fuel-banner__picture"') + '>' +
+        '<source type="image/svg+xml" srcset="' + L.svg + '">' +
+        '<img class="' + cls + '" src="' + L.png + '" alt="' + escapeHtml(L.alt) + '"' +
+          wh + ' loading="lazy" decoding="async">' +
+      '</picture>'
+    );
+  }
+
   /**
    * @param {object} opts
    * @param {string} opts.combustible
@@ -48,7 +75,10 @@
     const locked = !!(opts.lockedByMaestro || variant === 'maestro');
     const { kind, label, colorCode } = resolveKind(opts.combustible);
     if (!kind) {
-      return { show: false, kind: 'empty', label: '', colorCode: '', cssMod: '', bg: '', subline: '', html: '' };
+      return {
+        show: false, kind: 'empty', label: '', colorCode: '', cssMod: '', bg: '',
+        subline: '', logoSvg: '', logoPng: '', logoAlt: '', html: '',
+      };
     }
 
     let cssMod = 'fuel-banner--unknown';
@@ -56,6 +86,7 @@
     if (kind === 'avgas') { cssMod = 'fuel-banner--avgas'; bg = AVGAS_BG; }
     else if (kind === 'jet') { cssMod = 'fuel-banner--jet'; bg = JET_BG; }
 
+    const logo = LOGO[kind] || null;
     const mat = String(opts.matricula || '').trim();
     const tipo = cleanTipo(opts.tipo, audience === 'cliente');
     const cli = audience === 'staff' ? String(opts.cliente || '').trim() : '';
@@ -85,6 +116,9 @@
       cssMod,
       bg,
       subline,
+      logoSvg: logo ? logo.svg : '',
+      logoPng: logo ? logo.png : '',
+      logoAlt: logo ? logo.alt : label,
       html: '', // filled by renderFuelBanner
     };
   }
@@ -93,23 +127,42 @@
     const b = buildFuelBanner(opts || {});
     if (!b.show) return '';
     const sticky = opts && opts.sticky ? ' fuel-banner--sticky' : '';
-    return (
-      '<div class="fuel-banner ' + b.cssMod + sticky + '" role="status" style="background:' + b.bg + '">' +
+    const logoClass = b.logoSvg ? ' fuel-banner--logo' : '';
+    const styleBg = b.logoSvg ? '' : (' style="background:' + b.bg + '"');
+
+    let body;
+    if (b.logoSvg) {
+      body = logoMarkup(b.kind);
+    } else {
+      body = (
         '<div class="fuel-banner__title">' +
           '<span class="fuel-banner__icon" aria-hidden="true">⛽</span>' +
           '<span class="fuel-banner__grade">' + escapeHtml(b.label) + '</span>' +
-        '</div>' +
+        '</div>'
+      );
+    }
+
+    return (
+      '<div class="fuel-banner ' + b.cssMod + logoClass + sticky + '" role="status"' + styleBg + '>' +
+        body +
         (b.subline ? ('<p class="fuel-banner__sub">' + escapeHtml(b.subline) + '</p>') : '') +
       '</div>'
     );
   }
 
-  /** Chip compacto para filas de tabla. */
+  /** Chip compacto para filas de tabla — logo pequeño si hay. */
   function fuelChipHtml(combustible) {
     const { kind, label } = resolveKind(combustible);
     if (!kind) return '';
-    if (kind === 'jet') return '<span class="chip chip--jet">JET</span>';
-    if (kind === 'avgas') return '<span class="chip chip--avgas">AVGAS</span>';
+    if (kind === 'jet' || kind === 'avgas') {
+      const chipClass = kind === 'jet' ? 'chip--jet' : 'chip--avgas';
+      const alt = LOGO[kind].alt;
+      return (
+        '<span class="chip chip--logo ' + chipClass + '" title="' + escapeHtml(alt) + '">' +
+          logoMarkup(kind, { chip: true }) +
+        '</span>'
+      );
+    }
     return '<span class="chip">' + escapeHtml(label) + '</span>';
   }
 
@@ -117,8 +170,9 @@
   function fuelChipFullHtml(combustible) {
     const { kind, label } = resolveKind(combustible);
     if (!kind) return '';
-    if (kind === 'jet') return '<span class="chip chip--jet">JET A-1</span>';
-    if (kind === 'avgas') return '<span class="chip chip--avgas">AVGAS 100LL</span>';
+    if (kind === 'jet' || kind === 'avgas') {
+      return fuelChipHtml(combustible);
+    }
     return combustible ? ('<span class="chip">' + escapeHtml(combustible) + '</span>') : '';
   }
 

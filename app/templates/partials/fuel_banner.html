@@ -1,4 +1,4 @@
-{# Banner grado combustible — código de color internacional.
+{# Banner grado combustible — logos oficiales JET A-1 / AVGAS 100 LL.
    Esperá variables en scope (usar {% with %} al incluir):
      combustible (req)
      matricula, tipo, cliente (opt)
@@ -26,16 +26,39 @@
 ) %}
 {% if banner.show %}
   {% if compact is defined and compact %}
-    <span class="chip {% if banner.kind == 'avgas' %}chip--avgas{% elif banner.kind == 'jet' %}chip--jet{% endif %}"
-          title="{{ banner.subline }}">{% if banner.kind == 'avgas' %}AVGAS{% elif banner.kind == 'jet' %}JET{% else %}{{ banner.label }}{% endif %}</span>
+    {% if banner.logo_svg %}
+      <span class="chip chip--logo {% if banner.kind == 'avgas' %}chip--avgas{% elif banner.kind == 'jet' %}chip--jet{% endif %}"
+            title="{{ banner.subline or banner.logo_alt }}">
+        <picture>
+          <source type="image/svg+xml" srcset="{{ banner.logo_svg }}">
+          <img class="chip__logo" src="{{ banner.logo_png }}" alt="{{ banner.logo_alt }}" width="120" height="18" loading="lazy" decoding="async">
+        </picture>
+      </span>
+    {% else %}
+      <span class="chip {% if banner.kind == 'avgas' %}chip--avgas{% elif banner.kind == 'jet' %}chip--jet{% endif %}"
+            title="{{ banner.subline }}">{% if banner.kind == 'avgas' %}AVGAS{% elif banner.kind == 'jet' %}JET{% else %}{{ banner.label }}{% endif %}</span>
+    {% endif %}
   {% else %}
-    <div class="fuel-banner {{ banner.css_mod }}{% if sticky is defined and sticky %} fuel-banner--sticky{% endif %}"
+    <div class="fuel-banner {{ banner.css_mod }}{% if banner.logo_svg %} fuel-banner--logo{% endif %}{% if sticky is defined and sticky %} fuel-banner--sticky{% endif %}"
          role="status"
-         style="{% if banner.bg %}background:{{ banner.bg }};{% endif %}">
-      <div class="fuel-banner__title">
-        <span class="fuel-banner__icon" aria-hidden="true">⛽</span>
-        <span class="fuel-banner__grade">{{ banner.label }}</span>
-      </div>
+         style="{% if banner.bg and not banner.logo_svg %}background:{{ banner.bg }};{% endif %}">
+      {% if banner.logo_svg %}
+        <picture class="fuel-banner__picture">
+          <source type="image/svg+xml" srcset="{{ banner.logo_svg }}">
+          <img class="fuel-banner__logo"
+               src="{{ banner.logo_png }}"
+               alt="{{ banner.logo_alt }}"
+               width="480"
+               height="72"
+               loading="lazy"
+               decoding="async">
+        </picture>
+      {% else %}
+        <div class="fuel-banner__title">
+          <span class="fuel-banner__icon" aria-hidden="true">⛽</span>
+          <span class="fuel-banner__grade">{{ banner.label }}</span>
+        </div>
+      {% endif %}
       {% if banner.subline %}
         <p class="fuel-banner__sub">{{ banner.subline }}</p>
       {% endif %}
