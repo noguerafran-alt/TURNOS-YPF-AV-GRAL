@@ -27,32 +27,32 @@
 
   <!-- ===== Navegación de semanas ===== -->
   <nav class="weeknav" aria-label="Navegación de fechas">
-    <a class="btn btn--nav {% if not prev_monday %}is-disabled{% endif %}"
-       href="?d={{ prev_month.isoformat() }}"
-       {% if not prev_monday %}aria-disabled="true" tabindex="-1"{% endif %}>« Mes ant.</a>
+    <a class="btn btn--nav {% if not prev_month or prev_month >= selected_day %}is-disabled{% endif %}"
+       href="?d={{ prev_month.isoformat() if prev_month else '' }}"
+       {% if not prev_month or prev_month >= selected_day %}aria-disabled="true" tabindex="-1"{% endif %}>« Mes ant.</a>
 
     <a class="btn btn--nav {% if not prev_monday %}is-disabled{% endif %}"
        href="?d={{ prev_monday.isoformat() if prev_monday else '' }}"
-       aria-label="Semana anterior"
+       aria-label="Día anterior"
        {% if not prev_monday %}aria-disabled="true" tabindex="-1"{% endif %}>‹</a>
 
     <form class="weeknav__form" method="get">
       <label class="sr-only" for="dateJump">Ir a una fecha</label>
-      <input type="date" id="dateJump" name="d" value="{{ selected_day.isoformat() }}"
+      <input type="date" id="dateJump" name="d" value="{{ selected_day.isoformat() }}" min="{{ today.isoformat() }}"
              onchange="this.form.submit()" />
     </form>
 
     <a class="btn btn--nav {% if not next_monday %}is-disabled{% endif %}"
        href="?d={{ next_monday.isoformat() if next_monday else '' }}"
-       aria-label="Semana siguiente"
+       aria-label="Día siguiente"
        {% if not next_monday %}aria-disabled="true" tabindex="-1"{% endif %}>›</a>
 
-    <a class="btn btn--nav {% if not next_monday %}is-disabled{% endif %}"
-       href="?d={{ next_month.isoformat() }}"
-       {% if not next_monday %}aria-disabled="true" tabindex="-1"{% endif %}>Mes sig. »</a>
+    <a class="btn btn--nav {% if not next_month or next_month <= selected_day %}is-disabled{% endif %}"
+       href="?d={{ next_month.isoformat() if next_month else '' }}"
+       {% if not next_month or next_month <= selected_day %}aria-disabled="true" tabindex="-1"{% endif %}>Mes sig. »</a>
   </nav>
 
-  <p class="weeknav__label">Semana del {{ monday|date }} al {{ sunday|date }}</p>
+  <p class="weeknav__label">Desde el {{ monday|date }} al {{ sunday|date }}</p>
 
   {% if not user %}
     <p class="notice">
