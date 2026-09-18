@@ -18,8 +18,8 @@
 <body>
   <header class="topbar">
     <div class="wrap topbar__inner">
-      <a class="topbar__brand" href="/">
-        <img src="/static/img/logo-ypf.svg" alt="YPF" class="topbar__logo" width="74" height="20" />
+      <a class="topbar__brand" href="/" title="YPF Turnos — inicio" aria-label="YPF Turnos — inicio">
+        <img src="/static/img/logo-ypf.svg" alt="" class="topbar__logo" width="74" height="20" />
         <span class="topbar__brand-text">Turnos</span>
       </a>
 
@@ -28,15 +28,31 @@
         {% if user %}
           <a href="/mis-turnos">Mis turnos</a>
           <a href="/perfil">Mi perfil</a>
-          {% if user.is_operador %}<a class="topbar__admin" href="/operador">Operador</a>{% endif %}
-          {% if user.is_admin %}
-            <a class="topbar__admin" href="/coord/dashboard">Dashboard</a>
-            <a class="topbar__admin" href="/coord">Coordinación</a>
-            <a class="topbar__admin" href="/coord/agenda">Agenda</a>
-            <a class="topbar__admin" href="/coord/maestros">Maestros</a>
-            <a class="topbar__admin" href="/admin">Panel</a>
+          {% set show_staff = user.is_operador or user.is_admin or user.can_manage_users %}
+          {% if show_staff %}
+            <details class="topbar__staff">
+              <summary class="topbar__staff-trigger">
+                <span class="topbar__staff-icon" aria-hidden="true">☰</span>
+                Staff
+              </summary>
+              <div class="topbar__staff-menu" role="menu">
+                {% if user.is_operador %}
+                  <a class="topbar__admin" role="menuitem" href="/operador">Operador</a>
+                {% endif %}
+                {% if user.is_admin %}
+                  <a class="topbar__admin" role="menuitem" href="/coord/dashboard">Dashboard</a>
+                  <a class="topbar__admin" role="menuitem" href="/coord">Coordinación</a>
+                  <a class="topbar__admin" role="menuitem" href="/coord/agenda">Agenda</a>
+                  <a class="topbar__admin" role="menuitem" href="/coord/maestros">Maestros</a>
+                  <a class="topbar__admin" role="menuitem" href="/admin">Panel</a>
+                {% endif %}
+                {% if user.can_manage_users %}
+                  <a class="topbar__admin" role="menuitem" href="/admin/empresas">Empresas</a>
+                  <a class="topbar__admin" role="menuitem" href="/admin/usuarios">Usuarios</a>
+                {% endif %}
+              </div>
+            </details>
           {% endif %}
-          {% if user.can_manage_users %}<a class="topbar__admin" href="/admin/empresas">Empresas</a><a class="topbar__admin" href="/admin/usuarios">Usuarios</a>{% endif %}
           <form action="/auth/logout" method="post" class="topbar__logout">
             <button type="submit" class="linklike">Salir</button>
           </form>
@@ -63,7 +79,20 @@
     </div>
   </footer>
 
-  <script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+    (function () {
+      var staff = document.querySelector('.topbar__staff');
+      if (!staff) return;
+      document.addEventListener('click', function (e) {
+        if (!staff.open) return;
+        if (!staff.contains(e.target)) staff.open = false;
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && staff.open) staff.open = false;
+      });
+    })();
+  </script>
   {% block scripts %}{% endblock %}
 </body>
 </html>
