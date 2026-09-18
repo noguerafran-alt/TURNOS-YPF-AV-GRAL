@@ -150,16 +150,16 @@
 
       <div class="field">
         <label for="aircraft">Matrícula de la aeronave *</label>
-        <input type="text" id="aircraft" name="aircraft" maxlength="40" required
-               placeholder="LV-XXX" autocomplete="off" />
+        <input type="text" id="aircraft" name="aircraft" class="js-matricula" data-matricula-input maxlength="40" required autocomplete="off"
+               placeholder="LVXXX" />
         <p class="hint" id="aircraftTypeHint" hidden></p>
         <p class="hint" id="aircraftFuelHint" hidden></p>
       </div>
 
       <div class="field">
         <label for="aircraft_confirm">Reescribí la matrícula para confirmar *</label>
-        <input type="text" id="aircraft_confirm" name="aircraft_confirm" maxlength="40" required
-               placeholder="LV-XXX" autocomplete="off" />
+        <input type="text" id="aircraft_confirm" name="aircraft_confirm" class="js-matricula" data-matricula-input maxlength="40" required autocomplete="off"
+               placeholder="LVXXX" />
         <p class="hint">Escribí la misma matrícula otra vez para confirmar.</p>
       </div>
 
