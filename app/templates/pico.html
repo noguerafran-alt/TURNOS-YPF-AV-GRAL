@@ -1,0 +1,450 @@
+{% extends "base.html" %}
+{% block title %}Verificar pico{% endblock %}
+
+{% block head %}
+<!--
+  PICO SEGURO - pantalla de rampa (interlock anti-misfueling).
+  Template de TURNOS-APP: extiende base.html. Sin CDN ni dependencias externas.
+
+  PRUEBA SIN BACKEND
+  ------------------
+  Abrir /pico con sesion de nivel 1 o 2 y, desde la consola:
+
+      simular("CONSISTENTE")
+      simular("ABSTENERSE")
+      simular("BLOQUEAR")
+      simular("ERROR")        // caida de red / HTTP: se pinta como BLOQUEAR
+
+  Pinta la pantalla de resultado con una respuesta de ejemplo, sin llamar a la API.
+  El boton "Empezar de nuevo" vuelve a la pantalla de captura.
+-->
+
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:rgba(0,0,0,0)}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,Arial,sans-serif;
+    font-size:18px;line-height:1.35;
+    background:var(--bg,#ffffff);color:var(--tx,#111111);
+    -webkit-text-size-adjust:100%;
+    padding:0 0 32px;
+  }
+  body[data-estado="CONSISTENTE"]{--bg:#046A38;--tx:#ffffff}
+  body[data-estado="ABSTENERSE"] {--bg:#FFB000;--tx:#111111}
+  body[data-estado="BLOQUEAR"]   {--bg:#A80011;--tx:#ffffff}
+
+  .wrap{max-width:560px;margin:0 auto;padding:16px}
+  h1{font-size:22px;margin:4px 0 2px;letter-spacing:.5px}
+  .sub{font-size:15px;margin:0 0 18px;opacity:.75}
+  [hidden]{display:none !important}
+
+  /* ---------- botones ---------- */
+  .btn{
+    display:block;width:100%;min-height:72px;
+    font:inherit;font-size:21px;font-weight:800;letter-spacing:.4px;
+    padding:16px 14px;margin:0;
+    background:#ffffff;color:#111111;
+    border:4px solid #111111;border-radius:12px;
+    text-align:center;cursor:pointer;
+  }
+  .btn:active{transform:translateY(2px)}
+  .btn:focus-visible{outline:5px solid #0050C8;outline-offset:3px}
+  .btn[disabled]{background:#DDDDDD;color:#5A5A5A;border-color:#9A9A9A;cursor:default}
+  .btn-accion{min-height:88px;font-size:28px;background:#0050C8;color:#fff;border-color:#00306E}
+  .btn-accion[disabled]{background:#DDDDDD;color:#5A5A5A;border-color:#9A9A9A}
+  .btn-confirmar{min-height:88px;font-size:22px;background:#ffffff;color:#023D20;border-color:#023D20}
+  .btn + .btn{margin-top:12px}
+
+  /* ---------- captura ---------- */
+  .paso{border:3px solid #111;border-radius:14px;padding:14px;margin:0 0 16px;background:#F5F5F5}
+  .paso-h{display:flex;align-items:center;gap:10px;font-size:19px;font-weight:800;margin:0 0 12px}
+  .num{
+    flex:0 0 auto;width:38px;height:38px;border-radius:50%;
+    background:#111;color:#fff;font-size:20px;font-weight:800;
+    display:flex;align-items:center;justify-content:center
+  }
+  .paso.listo{background:#E6F2EA;border-color:#046A38}
+  .paso.listo .num{background:#046A38}
+  .mini{margin-top:12px}
+  .mini img{display:block;width:100%;max-height:190px;object-fit:cover;border:3px solid #111;border-radius:10px;background:#000}
+  .mini-ok{font-size:17px;font-weight:800;color:#024D28;margin:8px 0 0}
+  .mini-ok::before{content:"\2713\00a0"}
+  .nota{font-size:16px;font-weight:700;margin:12px 0 0;text-align:center}
+
+  /* ---------- cargando ---------- */
+  .cargando{text-align:center;padding:48px 8px}
+  .spin{
+    width:96px;height:96px;margin:0 auto 26px;border-radius:50%;
+    border:12px solid #D3D3D3;border-top-color:#0050C8;
+    animation:gira 1s linear infinite
+  }
+  @keyframes gira{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){.spin{animation-duration:3s}}
+  .cargando h2{font-size:30px;margin:0 0 10px;letter-spacing:1px}
+  .cargando p{font-size:18px;margin:0;font-weight:700}
+
+  /* ---------- resultado ---------- */
+  .franja{height:22px;background:repeating-linear-gradient(45deg,#111 0 16px,#FFD400 16px 32px)}
+  .banda{display:flex;align-items:center;gap:14px;padding:18px 0 10px}
+  .banda .ico{flex:0 0 auto;width:64px;height:64px;display:block}
+  .banda svg{width:64px;height:64px;display:block}
+  .banda .rot{font-size:32px;font-weight:900;line-height:1.05;letter-spacing:.5px}
+  .rot-xl{font-size:46px;letter-spacing:1px}
+  .veredicto-txt{font-size:17px;font-weight:800;letter-spacing:3px;margin:0 0 14px}
+  .producto{
+    background:#fff;color:#111;border:5px solid #111;border-radius:14px;
+    padding:18px 12px;margin:0 0 16px;text-align:center;word-break:break-word
+  }
+  .producto .etq{font-size:14px;font-weight:800;letter-spacing:2px;opacity:.7}
+  .producto .val{font-size:52px;font-weight:900;line-height:1.05;margin-top:6px}
+  .datos{display:grid;grid-template-columns:1fr;gap:10px;margin:0 0 16px}
+  .dato{background:#fff;color:#111;border:3px solid #111;border-radius:12px;padding:12px 14px}
+  .dato .etq{font-size:14px;font-weight:800;letter-spacing:1.5px;opacity:.7}
+  .dato .val{font-size:26px;font-weight:900;word-break:break-word}
+  .motivo{background:#fff;color:#111;border:4px solid #111;border-radius:12px;padding:14px;margin:0 0 16px;font-size:19px;font-weight:700}
+  .motivo-xl{font-size:26px;font-weight:900;line-height:1.25}
+  .aviso{background:#fff;color:#111;border:5px dashed #111;border-radius:12px;padding:16px;margin:0 0 16px;font-size:20px;font-weight:800}
+  .caja{background:#fff;color:#111;border:3px solid #111;border-radius:12px;padding:14px;margin:0 0 16px}
+  .caja h3{font-size:15px;font-weight:800;letter-spacing:1.5px;margin:0 0 8px;opacity:.75}
+  .caja ul{margin:0;padding-left:22px}
+  .caja li{font-size:17px;font-weight:600;margin:0 0 7px;word-break:break-word}
+  .campo{width:100%;padding:16px;font-size:30px;font-weight:800;text-align:center;text-transform:uppercase;letter-spacing:.08em;border:4px solid #111;border-radius:12px;font-family:ui-monospace,Consolas,monospace}
+  .campo:focus{outline:4px solid #0451DD;outline-offset:2px}
+  .acuse{background:#fff;color:#111;border:5px solid #111;border-radius:12px;padding:16px;margin:0 0 12px;font-size:20px;font-weight:800}
+  .acuse .id{display:block;margin-top:8px;font-family:ui-monospace,Consolas,monospace;font-size:15px;font-weight:700;word-break:break-all}
+  .pie{font-family:ui-monospace,Consolas,monospace;font-size:13px;margin:18px 0 0;text-align:center;word-break:break-all;opacity:.9}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ================= CAPTURA ================= -->
+<main class="wrap" id="pantalla-captura">
+  <h1>PICO SEGURO</h1>
+  <p class="sub">Verificación de producto antes de la carga</p>
+
+  <section class="paso" id="paso-matricula">
+    <div class="paso-h"><span class="num">1</span><span>Matrícula de la aeronave</span></div>
+    <input type="text" id="in-matricula" class="campo" placeholder="LV-ABC"
+           autocomplete="off" autocapitalize="characters" autocorrect="off"
+           spellcheck="false" inputmode="text" maxlength="12"
+           aria-label="Matrícula de la aeronave que vas a cargar">
+  </section>
+
+  <section class="paso" id="paso-foto_toma">
+    <div class="paso-h"><span class="num">2</span><span>Toma de combustible de la aeronave</span></div>
+    <button type="button" class="btn" id="btn-foto_toma">Sacar foto de la toma</button>
+    <input type="file" accept="image/*" capture="environment" id="in-foto_toma" hidden>
+    <div class="mini" id="mini-foto_toma" hidden>
+      <img id="img-foto_toma" alt="Foto tomada de la toma de combustible">
+      <p class="mini-ok">Foto tomada</p>
+    </div>
+  </section>
+
+  <button type="button" class="btn btn-accion" id="btn-verificar" disabled>VERIFICAR</button>
+  <p class="nota" id="nota">Falta la matrícula y la foto de la toma</p>
+</main>
+
+<!-- ================= CARGANDO ================= -->
+<main class="wrap cargando" id="pantalla-cargando" hidden>
+  <div class="spin"></div>
+  <h2>VERIFICANDO</h2>
+  <p>No cierres la pantalla.<br>Puede tardar unos segundos.</p>
+</main>
+
+<!-- ================= RESULTADO ================= -->
+<div id="pantalla-resultado" hidden aria-live="assertive">
+  <div class="franja" id="franja-top" hidden></div>
+  <main class="wrap" id="resultado"></main>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  "use strict";
+
+  var PASOS = [
+    {campo:"foto_toma", rotulo:"foto de la toma",
+     btn:"Sacar foto de la toma", repetir:"Repetir foto de la toma"}
+  ];
+
+  var fotos = {foto_toma:null};
+  var urls  = {foto_toma:null};
+  var enviando = false;
+
+  function $(id){ return document.getElementById(id); }
+
+  // Iconos SVG inline: la forma distingue los tres estados sin depender del color.
+  var ICONOS = {
+    CONSISTENTE:'<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="20.5" fill="none" stroke="currentColor" stroke-width="5"/><path d="M13 24.5 l8 8 l15 -17" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    ABSTENERSE :'<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 4 L46 43 H2 Z" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="M24 18 V29" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><circle cx="24" cy="36.5" r="3.2" fill="currentColor"/></svg>',
+    BLOQUEAR   :'<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M16.5 3 H31.5 L45 16.5 V31.5 L31.5 45 H16.5 L3 31.5 V16.5 Z" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="M17 17 L31 31 M31 17 L17 31" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"/></svg>'
+  };
+
+  function txt(v){
+    return (v === null || v === undefined || v === "") ? "SIN DATO" : String(v);
+  }
+
+  function el(tag, clase, texto){
+    var n = document.createElement(tag);
+    if (clase) { n.className = clase; }
+    if (texto !== undefined) { n.textContent = texto; }
+    return n;
+  }
+
+  function mostrar(cual){
+    $("pantalla-captura").hidden   = (cual !== "captura");
+    $("pantalla-cargando").hidden  = (cual !== "cargando");
+    $("pantalla-resultado").hidden = (cual !== "resultado");
+    window.scrollTo(0, 0);
+  }
+
+  // ---------------- captura ----------------
+
+  PASOS.forEach(function(p){
+    var boton = $("btn-" + p.campo);
+    var input = $("in-" + p.campo);
+
+    boton.addEventListener("click", function(){ input.click(); });
+
+    input.addEventListener("change", function(){
+      var f = input.files && input.files[0];
+      if (!f) { return; }
+      if (urls[p.campo]) { URL.revokeObjectURL(urls[p.campo]); }
+      fotos[p.campo] = f;
+      urls[p.campo] = URL.createObjectURL(f);
+      $("img-" + p.campo).src = urls[p.campo];
+      $("mini-" + p.campo).hidden = false;
+      $("paso-" + p.campo).classList.add("listo");
+      boton.textContent = p.repetir;
+      revisar();
+    });
+  });
+
+  function matricula(){ return $("in-matricula").value.trim(); }
+
+  function revisar(){
+    var sinFoto = PASOS.filter(function(p){ return !fotos[p.campo]; });
+    var sinMat  = (matricula() === "");
+    $("btn-verificar").disabled = sinMat || (sinFoto.length > 0) || enviando;
+    var nota = $("nota");
+    if (sinMat && sinFoto.length)  { nota.textContent = "Falta la matrícula y la foto de la toma"; }
+    else if (sinMat)               { nota.textContent = "Falta la matrícula"; }
+    else if (sinFoto.length)       { nota.textContent = "Falta la " + sinFoto[0].rotulo; }
+    else                           { nota.textContent = "Listo para verificar"; }
+  }
+
+  $("in-matricula").addEventListener("input", revisar);
+
+  $("btn-verificar").addEventListener("click", function(){
+    if (enviando) { return; }
+    if (!matricula() || !fotos.foto_toma) { return; }
+    enviando = true;
+    $("btn-verificar").disabled = true;
+    mostrar("cargando");
+
+    var fd = new FormData();
+    fd.append("matricula", matricula());
+    fd.append("foto_toma", fotos.foto_toma);
+
+    fetch("/pico/verificar", {method:"POST", body:fd})
+      .then(function(r){
+        if (!r.ok) { throw new Error("HTTP " + r.status); }
+        return r.json();
+      })
+      .then(function(d){ pintar(d); })
+      .catch(function(){
+        // Red caida, HTTP con error o JSON invalido: se bloquea. Nunca verde.
+        pintar({
+          veredicto:"BLOQUEAR",
+          producto:null, matricula:null, modelo:null,
+          motivo:"No se pudo verificar",
+          detalle:["No hubo respuesta del sistema de verificación.",
+                   "Sin verificación no se carga: confirmá el producto a mano contra la placa de la aeronave."],
+          id_registro:null
+        });
+      })
+      .then(function(){ enviando = false; });
+  });
+
+  // ---------------- resultado ----------------
+
+  function pintar(d){
+    d = d || {};
+    var v = d.veredicto;
+    if (v !== "CONSISTENTE" && v !== "ABSTENERSE" && v !== "BLOQUEAR") {
+      // Veredicto desconocido: se trata como bloqueo.
+      d = {veredicto:"BLOQUEAR", producto:null, matricula:null, modelo:null,
+           motivo:"No se pudo verificar",
+           detalle:["Respuesta no reconocida del sistema de verificación."],
+           id_registro:d.id_registro || null};
+      v = "BLOQUEAR";
+    }
+
+    document.body.setAttribute("data-estado", v);
+    $("franja-top").hidden = (v !== "BLOQUEAR");
+
+    var c = $("resultado");
+    c.innerHTML = "";
+
+    var banda = el("div", "banda");
+    var ico = el("span", "ico");
+    ico.innerHTML = ICONOS[v];
+    banda.appendChild(ico);
+    banda.appendChild(el("div", v === "BLOQUEAR" ? "rot rot-xl" : "rot",
+      v === "CONSISTENTE" ? "CONSISTENTE"
+                          : (v === "ABSTENERSE" ? "NO ALCANZA LA EVIDENCIA" : "NO CARGAR")));
+    c.appendChild(banda);
+
+    c.appendChild(el("p", "veredicto-txt", "VEREDICTO: " + v));
+
+    if (v === "CONSISTENTE") {
+      var prod = el("div", "producto");
+      prod.appendChild(el("div", "etq", "PRODUCTO SEGÚN REGISTRO"));
+      prod.appendChild(el("div", "val", txt(d.producto)));
+      c.appendChild(prod);
+
+      var datos = el("div", "datos");
+      [["MATRÍCULA", d.matricula], ["MODELO", d.modelo]].forEach(function(par){
+        var box = el("div", "dato");
+        box.appendChild(el("div", "etq", par[0]));
+        box.appendChild(el("div", "val", txt(par[1])));
+        datos.appendChild(box);
+      });
+      c.appendChild(datos);
+    }
+
+    if (d.motivo) {
+      c.appendChild(el("p", v === "BLOQUEAR" ? "motivo motivo-xl" : "motivo", String(d.motivo)));
+    }
+
+    if (v === "CONSISTENTE") {
+      c.appendChild(el("div", "aviso",
+        "El sistema no habilita el pico. Verificá el producto contra la placa de la aeronave y habilitá vos."));
+    } else if (v === "ABSTENERSE") {
+      c.appendChild(el("div", "aviso",
+        "Revisá la matrícula que escribiste, o verificá el producto a mano contra la placa de la aeronave."));
+    } else {
+      c.appendChild(el("div", "aviso",
+        "NO CARGUES. Verificá el producto a mano contra la placa de la aeronave antes de cualquier otra cosa."));
+    }
+
+    var det = Array.isArray(d.detalle) ? d.detalle : [];
+    if (det.length) {
+      var caja = el("div", "caja");
+      caja.appendChild(el("h3", null, "DETALLE"));
+      var ul = document.createElement("ul");
+      det.forEach(function(linea){ ul.appendChild(el("li", null, String(linea))); });
+      caja.appendChild(ul);
+      c.appendChild(caja);
+    }
+
+    if (v === "CONSISTENTE") {
+      var conf = el("button", "btn btn-confirmar", "Confirmé el producto — habilitar");
+      conf.type = "button";
+      conf.addEventListener("click", function(){
+        // Esta linea del backend es la que dice que una PERSONA decidio. El verde
+        // solo propone. Si no se pudo guardar, el acuse lo dice: una confirmacion
+        // sin rastro es peor que ninguna, y el operador tiene que saberlo.
+        conf.disabled = true;
+        conf.textContent = "Registrando...";
+        var acuse = function(aviso){
+          var ac = el("div", "acuse", "Habilitación registrada por el operador. El sistema no habilitó el pico.");
+          ac.appendChild(el("span", "id", "Registro: " + txt(d.id_registro)));
+          if (aviso) { ac.appendChild(el("span", "id", aviso)); }
+          c.replaceChild(ac, conf);
+        };
+        fetch("/pico/confirmar", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({id_registro: d.id_registro})
+        })
+          .then(function(r){ if (!r.ok) { throw new Error("HTTP " + r.status); } return r.json(); })
+          .then(function(){ acuse(""); })
+          .catch(function(){ acuse("ATENCIÓN: no se pudo guardar el registro de esta habilitación."); });
+      });
+      c.appendChild(conf);
+    }
+
+    var reset = el("button", "btn", "Empezar de nuevo");
+    reset.type = "button";
+    reset.addEventListener("click", reiniciar);
+    c.appendChild(reset);
+
+    c.appendChild(el("p", "pie", "id_registro: " + txt(d.id_registro)));
+
+    mostrar("resultado");
+  }
+
+  function reiniciar(){
+    PASOS.forEach(function(p){
+      if (urls[p.campo]) { URL.revokeObjectURL(urls[p.campo]); }
+      urls[p.campo] = null;
+      fotos[p.campo] = null;
+      if (p.campo === "foto_toma") { $("in-matricula").value = ""; }
+      $("in-" + p.campo).value = "";
+      $("img-" + p.campo).removeAttribute("src");
+      $("mini-" + p.campo).hidden = true;
+      $("paso-" + p.campo).classList.remove("listo");
+      $("btn-" + p.campo).textContent = p.btn;
+    });
+    enviando = false;
+    document.body.removeAttribute("data-estado");
+    $("resultado").innerHTML = "";
+    $("franja-top").hidden = true;
+    revisar();
+    mostrar("captura");
+  }
+
+  // ---------------- simulador (ver comentario de arriba) ----------------
+
+  var EJEMPLOS = {
+    CONSISTENTE:{
+      veredicto:"CONSISTENTE", producto:"JET A-1", matricula:"LVABC", modelo:"Boeing 737-800",
+      motivo:"Matricula LVABC figura en registro como JET A-1. El placard junto a la boca dice lo mismo.",
+      detalle:["Matricula leida: LVABC (confianza alta)",
+               "Registro: JET A-1",
+               "Placard junto a la boca: JET A-1"],
+      id_registro:"2026-09-17T18:04:11-a3f9"
+    },
+    ABSTENERSE:{
+      veredicto:"ABSTENERSE", producto:null, matricula:"LVAB?", modelo:null,
+      motivo:"La matrícula está parcialmente tapada y la boca de carga sale fuera de foco.",
+      detalle:["Matricula leida: LVAB? (confianza baja)",
+               "Registro: sin coincidencia única",
+               "Placard: ausente o ilegible (no aporta)"],
+      id_registro:"2026-09-17T18:07:52-77b1"
+    },
+    BLOQUEAR:{
+      veredicto:"BLOQUEAR", producto:"AVGAS 100LL", matricula:"LVXYZ", modelo:"Cessna 172",
+      motivo:"La aeronave figura como AVGAS 100LL y el placard de la aeronave dice JET A-1. No coincide.",
+      detalle:["Matricula leida: LVXYZ (confianza alta)",
+               "Registro: AVGAS 100LL",
+               "Placard junto a la boca: JET A-1",
+               "Contradiccion entre registro y aeronave. NO CARGAR."],
+      id_registro:"2026-09-17T18:11:03-c04e"
+    },
+    ERROR:{
+      veredicto:"BLOQUEAR", producto:null, matricula:null, modelo:null,
+      motivo:"No se pudo verificar",
+      detalle:["No hubo respuesta del sistema de verificación.",
+               "Sin verificación no se carga: confirmá el producto a mano contra la placa de la aeronave."],
+      id_registro:null
+    }
+  };
+
+  window.simular = function(veredicto){
+    var d = EJEMPLOS[String(veredicto || "").toUpperCase()];
+    if (!d) {
+      console.log('Usar: simular("CONSISTENTE" | "ABSTENERSE" | "BLOQUEAR" | "ERROR")');
+      return;
+    }
+    pintar(d);
+  };
+
+  revisar();
+})();
+</script>
+{% endblock %}

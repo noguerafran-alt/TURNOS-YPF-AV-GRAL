@@ -83,6 +83,11 @@ class Settings:
 
         self.base_url: str = os.getenv("BASE_URL", "http://localhost:8000").rstrip("/")
 
+        # --- Verificación de pico (AVGAS / JET) ---
+        # El registro de aeronaves NO va en el repo: son matrículas de clientes y
+        # este repo es público. Vive en el disco persistente, al lado de turnos.db.
+        self.pico_registro: str = os.getenv("PICO_REGISTRO", "/var/data/aeronaves.json")
+
         # Aplicar las migraciones al arrancar. Apagalo solo si vas a correr
         # `alembic upgrade head` por separado (ej: varias instancias en paralelo).
         self.run_migrations: bool = _as_bool(os.getenv("RUN_MIGRATIONS"), default=True)

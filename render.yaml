@@ -47,6 +47,13 @@ services:
       - key: DATABASE_URL
         value: sqlite:////var/data/turnos.db
 
+      # --- Verificación de pico (AVGAS / JET) ---
+      # El registro de aeronaves NO va en el repo: son matrículas de clientes y
+      # este repo es público. Se sube a mano al disco persistente, al lado de
+      # turnos.db, y se regenera con construir_aeronaves.py cuando cambia el maestro.
+      - key: PICO_REGISTRO
+        value: /var/data/aeronaves.json
+
       - key: SECRET_KEY
         generateValue: true        # Render genera una clave aleatoria
       - key: ENVIRONMENT

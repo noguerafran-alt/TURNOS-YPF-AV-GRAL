@@ -25,3 +25,9 @@ venv/
 Thumbs.db
 .idea/
 .vscode/
+
+# Registro de aeronaves y su origen: son matriculas de CLIENTES y este repo es
+# publico. Viven en el disco persistente de Render, nunca aca. Ver PICO.md.
+aeronaves.json
+*maestro*.xlsx
+pico_registros/
