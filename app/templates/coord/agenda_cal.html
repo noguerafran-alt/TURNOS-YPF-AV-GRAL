@@ -164,7 +164,7 @@
     <div class="field"><label for="man-date">Fecha *</label><input type="date" id="man-date" /></div>
     <div class="field"><label for="man-time">Hora *</label><input type="time" id="man-time" value="10:00" /></div>
   </div>
-  <div class="field"><label for="man-aircraft">Matrícula *</label><input id="man-aircraft" autocomplete="off" placeholder="LV-XXX" /></div>
+  <div class="field"><label for="man-aircraft">Matrícula *</label><input id="man-aircraft" autocomplete="off" placeholder="LVXXX" class="js-matricula" data-matricula-input /></div>
   <div id="man-fuel-banner"></div>
   <div class="field"><label for="man-model">Modelo</label><input id="man-model" /></div>
   <div class="field"><label for="man-fuel">Combustible</label>
@@ -403,7 +403,7 @@
     const date = document.getElementById('man-date').value;
     const time = document.getElementById('man-time').value;
     if (!date || !time) { err.textContent = 'Fecha y hora obligatorias.'; err.hidden = false; return; }
-    const aircraft = document.getElementById('man-aircraft').value.trim();
+    const aircraft = (window.YPFNormalizeMatricula ? window.YPFNormalizeMatricula(document.getElementById('man-aircraft').value) : document.getElementById('man-aircraft').value.trim().toUpperCase().replace(/[^A-Z0-9]/g,''));
     if (!aircraft) { err.textContent = 'Matrícula obligatoria.'; err.hidden = false; return; }
     const starts = date + 'T' + time + ':00';
     const body = {
