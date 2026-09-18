@@ -11,8 +11,9 @@
   {% set _head_mod = "agenda-head--jet" if ("JET" in _prod) else ("agenda-head--avgas" if ("AVGAS" in _prod or "100LL" in _prod) else "") %}
   <section class="agenda-head {{ _head_mod }}">
     <div>
-      {% set _badge_mod = "agenda-card__badge--jet" if ("JET" in _prod) else ("agenda-card__badge--avgas" if ("AVGAS" in _prod or "100LL" in _prod) else "") %}
-      <span class="agenda-card__badge {{ _badge_mod }}">{{ agenda.product or "Turnos" }}</span>
+      {% with combustible=agenda.product or '', audience='cliente', variant='turno' %}
+        {% include 'partials/fuel_banner.html' %}
+      {% endwith %}
       <h1>{{ agenda.name }}</h1>
       {% if agenda.location %}<p class="agenda-head__loc">{{ agenda.location }}</p>{% endif %}
       {% if agenda.address %}<p class="muted">{{ agenda.address }}</p>{% endif %}
