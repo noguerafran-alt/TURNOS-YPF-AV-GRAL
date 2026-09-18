@@ -182,6 +182,17 @@
         {% else %}
           <p class="muted">Todavía no hay miembros.</p>
         {% endif %}
+
+        <h3>Salir de la empresa</h3>
+        <p class="hint">
+          Renunciás a tu membresía formal. La empresa <strong>no se borra</strong>
+          y el resto de los miembros siguen vinculados. Después podés crear tu propia
+          empresa o aceptar otra invitación.
+        </p>
+        <form method="post" action="/perfil/empresa/salir"
+              onsubmit="return confirm('¿Seguro que querés salir de {{ empresa.nombre }}? Vas a quedar sin empresa formal.');">
+          <button type="submit" class="btn btn--danger">Renunciar / Salir de la empresa</button>
+        </form>
       </section>
     {% endif %}
 

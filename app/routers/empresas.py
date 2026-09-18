@@ -10,7 +10,7 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.auth import require_user, require_user_manager
@@ -235,3 +235,47 @@ def perfil_rechazar_invite(
     db.commit()
     return _perfil_redirect(message="Invitación rechazada.")
 
+
+@router.post("/perfil/empresa/salir")
+def perfil_salir_empresa(
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Renuncia a la membresía formal. No borra la Empresa.
+
+    Si el usuario es el último admin_empresa, se bloquea para no dejar
+    la org sin administrador.
+    """
+    if not user.empresa_id:
+        return _perfil_redirect(error="No pertenecés a ninguna empresa.")
+
+    empresa = db.get(Empresa, user.empresa_id)
+    if empresa is None:
+        # Membresía huérfana: limpiar igual
+        user.empresa_id = None
+        user.role_in_empresa = None
+        db.commit()
+        return _perfil_redirect(message="Ya no figurás en ninguna empresa.")
+
+    if user.is_admin_empresa:
+        otros_admins = db.scalar(
+            select(func.count())
+            .select_from(User)
+            .where(
+                User.empresa_id == empresa.id,
+                User.role_in_empresa == RoleInEmpresa.ADMIN_EMPRESA,
+                User.id != user.id,
+            )
+        )
+        if not otros_admins:
+            return _perfil_redirect(
+                error="Nominá otro administrador antes de salir."
+            )
+
+    nombre = empresa.nombre
+    user.empresa_id = None
+    user.role_in_empresa = None
+    db.commit()
+    return _perfil_redirect(
+        message=f"Saliste de «{nombre}». Podés crear tu empresa o aceptar una invitación."
+    )
