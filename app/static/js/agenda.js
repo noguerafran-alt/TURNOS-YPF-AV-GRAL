@@ -160,8 +160,13 @@
     }
   }
 
+  function normalizeMatricula(raw) {
+    if (window.YPFNormalizeMatricula) return window.YPFNormalizeMatricula(raw);
+    return String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  }
+
   async function lookupMatricula(raw, opts) {
-    const value = (raw || '').trim();
+    const value = normalizeMatricula(raw);
     if (value.length < 2) {
       clearFuelUi();
       return;
@@ -203,7 +208,7 @@
     }
     const matricula = opt.dataset.matricula || '';
     const modelo = opt.dataset.modelo || '';
-    if (matricula) bookForm.aircraft.value = matricula;
+    if (matricula) bookForm.aircraft.value = normalizeMatricula(matricula);
     if (modelo) bookForm.aircraft_model.value = modelo;
     // El maestro manda: lookup confirma combustible readonly / primera carga
     lookupMatricula(matricula, { fromPick: true });
